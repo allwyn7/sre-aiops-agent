@@ -1,0 +1,32 @@
+{
+  "incident_id": "INC-2024-002",
+  "scenario": "scenario-2-500-schema-drift",
+  "title": "bookshop-srv: HTTP 500 spike – Hibernate SQLGrammarException on Books endpoint",
+  "severity": "P1",
+  "service": "bookshop-srv",
+  "environment": "production",
+  "timestamp": "2024-04-10T14:19:05Z",
+  "alert_source": "SAP BTP Application Logging",
+  "metrics": {
+    "http_5xx_rate_per_min": 91,
+    "http_5xx_baseline_per_min": 0.2,
+    "affected_endpoints": [
+      "GET /api/books",
+      "GET /api/books/{id}",
+      "GET /api/books/search"
+    ],
+    "error_rate_percent": 96.1
+  },
+  "labels": {
+    "app": "bookshop",
+    "component": "catalog-service",
+    "btp_space": "prod",
+    "btp_org": "sap-internal-demo",
+    "runtime": "spring-boot-3.2",
+    "db": "sap-hana-cloud"
+  },
+  "blame_pr_number": 52,
+  "blame_pr_title": "refactor: remove deprecated price_old column from Book entity",
+  "blame_commit_sha": "d9e1b44",
+  "blame_commit_message": "refactor: drop price_old field from Book.java, column no longer used by any consumer"
+}

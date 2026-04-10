@@ -1,0 +1,67 @@
+name: SRE AIOps – Incident Response
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Incident scenario to trigger'
+        required: true
+        type: choice
+        options:
+          - scenario-2-500-schema-drift
+          - scenario-1-oom-cache
+          - scenario-3-n-plus-one-timeout
+          - scenario-4-xsuaa-auth
+        default: scenario-2-500-schema-drift
+      issue_number:
+        description: 'GitHub Issue # to post diagnosis on (blank = create new)'
+        required: false
+        type: string
+
+jobs:
+  incident-response:
+    name: Diagnose & Remediate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: agent/package-lock.json
+
+      - name: Install agent dependencies
+        run: npm ci
+        working-directory: agent
+
+      - name: Run AIOps Agent
+        id: agent
+        env:
+          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO:          ${{ github.repository }}
+          INCIDENT_SCENARIO:    ${{ inputs.scenario }}
+          TARGET_ISSUE_NUMBER:  ${{ inputs.issue_number }}
+          RUN_ID:               ${{ github.run_id }}
+        run: node index.js
+        working-directory: agent
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## SRE AIOps Agent Run" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Scenario | \`${{ inputs.scenario }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Diagnosis Issue | ${{ steps.agent.outputs.diagnosis_issue_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Fix PR | ${{ steps.agent.outputs.fix_pr_url }} |" >> $GITHUB_STEP_SUMMARY

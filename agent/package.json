@@ -1,0 +1,14 @@
+{
+  "name": "sre-aiops-agent",
+  "version": "1.0.0",
+  "description": "SRE AIOps incident response agent – SAP Hackathon",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@octokit/rest": "^21.0.0"
+  }
+}

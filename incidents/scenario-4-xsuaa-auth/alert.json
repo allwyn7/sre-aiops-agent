@@ -1,0 +1,38 @@
+{
+  "incident_id": "INC-2024-004",
+  "scenario": "scenario-4-xsuaa-auth",
+  "title": "bookshop-srv: HTTP 401/403 on all endpoints – XSUAA token validation failing after security config change",
+  "severity": "P1",
+  "service": "bookshop-srv",
+  "environment": "production",
+  "timestamp": "2024-04-14T16:33:10Z",
+  "alert_source": "SAP BTP Application Logging",
+  "metrics": {
+    "http_401_rate_per_min": 120,
+    "http_403_rate_per_min": 45,
+    "http_401_baseline_per_min": 2,
+    "http_2xx_rate_per_min": 0,
+    "http_2xx_baseline_per_min": 340,
+    "affected_endpoints": [
+      "GET /api/books",
+      "GET /api/books/{id}",
+      "GET /api/books/search",
+      "GET /actuator/health"
+    ],
+    "error_rate_percent": 100.0,
+    "xsuaa_token_validation_failures": 165
+  },
+  "labels": {
+    "app": "bookshop",
+    "component": "catalog-service",
+    "btp_space": "prod",
+    "btp_org": "sap-internal-demo",
+    "runtime": "spring-boot-3.2",
+    "db": "sap-hana-cloud",
+    "auth": "xsuaa"
+  },
+  "blame_pr_number": 58,
+  "blame_pr_title": "chore: update XSUAA service binding for new BTP subaccount migration",
+  "blame_commit_sha": "c4a8d67",
+  "blame_commit_message": "chore: update xsappname and oauth2 config for migrated BTP subaccount prod-eu20-v2"
+}

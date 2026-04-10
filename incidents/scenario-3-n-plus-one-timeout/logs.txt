@@ -1,0 +1,52 @@
+2024-04-12T10:55:01.003Z INFO  [bookshop-srv] Starting BookshopApplication v1.4.3 on prod-pod-9c2d1a with PID 1
+2024-04-12T10:55:02.221Z INFO  [bookshop-srv] The following profiles are active: cloud,prod
+2024-04-12T10:55:03.445Z INFO  [bookshop-srv] HikariPool-1 - Starting...
+2024-04-12T10:55:03.612Z INFO  [bookshop-srv] HikariPool-1 - PostgreSQL connection established. Pool size: 10
+2024-04-12T10:55:04.331Z INFO  [bookshop-srv] Tomcat started on port(s): 8080 (http)
+2024-04-12T10:55:04.340Z INFO  [bookshop-srv] Started BookshopApplication in 3.3 seconds (process running for 3.5)
+
+2024-04-12T11:00:01.112Z INFO  [bookshop-srv] GET /api/books - User: user@example.com (XSUAA JWT validated)
+2024-04-12T11:00:01.115Z DEBUG [bookshop-srv] Hibernate: select b1_0.id, b1_0.title, b1_0.price, b1_0.price_old, b1_0.stock, b1_0.author_id from book b1_0
+2024-04-12T11:00:01.118Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, a1_0.name, a1_0.nationality from author a1_0 where a1_0.id=?
+2024-04-12T11:00:01.119Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, a1_0.name, a1_0.nationality from author a1_0 where a1_0.id=?
+2024-04-12T11:00:01.120Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, a1_0.name, a1_0.nationality from author a1_0 where a1_0.id=?
+2024-04-12T11:00:01.121Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, a1_0.name, a1_0.nationality from author a1_0 where a1_0.id=?
+2024-04-12T11:00:01.250Z INFO  [bookshop-srv] GET /api/books completed in 138ms – 4 books, 5 SQL queries (N+1 detected)
+
+2024-04-12T11:02:00.001Z INFO  [bookshop-srv] BTP load test started – simulating 200 concurrent users on /api/books
+2024-04-12T11:02:01.003Z DEBUG [bookshop-srv] Hibernate: select b1_0.id, b1_0.title, ... from book b1_0
+2024-04-12T11:02:01.004Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, ... from author a1_0 where a1_0.id=?
+2024-04-12T11:02:01.005Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, ... from author a1_0 where a1_0.id=?
+2024-04-12T11:02:01.006Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, ... from author a1_0 where a1_0.id=?
+2024-04-12T11:02:01.007Z DEBUG [bookshop-srv] Hibernate: select a1_0.id, ... from author a1_0 where a1_0.id=?
+
+2024-04-12T11:03:15.221Z WARN  [bookshop-srv] HikariPool-1 - Connection is not available, request timed out after 30000ms (total=10, active=10, idle=0, waiting=187)
+2024-04-12T11:03:15.223Z WARN  [bookshop-srv] 1,205 SQL queries executed for single GET /api/books request (expected: 1). N+1 query problem detected.
+
+2024-04-12T11:03:30.001Z ERROR [bookshop-srv] Servlet.service() for servlet [dispatcherServlet] threw exception
+
+org.springframework.dao.DataAccessResourceFailureException: Unable to acquire JDBC Connection; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to acquire JDBC Connection
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:295)
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.translateExceptionIfPossible(HibernateJpaDialect.java:233)
+	at com.sap.demo.bookshop.service.BookService.findAll(BookService.java:42)
+	at com.sap.demo.bookshop.controller.BookController.getAllBooks(BookController.java:38)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+Caused by: org.hibernate.exception.JDBCConnectionException: Unable to acquire JDBC Connection
+	at org.hibernate.exception.internal.SQLStateConversionDelegate.convert(SQLStateConversionDelegate.java:98)
+Caused by: java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:686)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:179)
+	... 38 common frames omitted
+
+2024-04-12T11:03:30.003Z ERROR [bookshop-srv] HTTP 500 on GET /api/books: Connection pool exhausted – 187 threads waiting for DB connection
+
+2024-04-12T11:03:45.100Z ERROR [bookshop-srv] request timed out after 30000ms – HikariPool-1 connection exhausted
+2024-04-12T11:03:45.200Z ERROR [bookshop-srv] request timed out after 30000ms – HikariPool-1 connection exhausted
+2024-04-12T11:03:45.300Z ERROR [bookshop-srv] request timed out after 30000ms – HikariPool-1 connection exhausted
+
+2024-04-12T11:04:00.001Z WARN  [bookshop-srv] Health check /actuator/health – DB connection pool saturated, response time: 28,450ms
+2024-04-12T11:04:00.003Z ERROR [bookshop-srv] BTP Availability Check DEGRADED: bookshop-srv response time exceeds 10s SLA
+
+2024-04-12T11:05:00.003Z WARN  [bookshop-srv] Average response time: 8,750ms (baseline: 92ms). P99: 31,200ms.
+2024-04-12T11:05:33.001Z ERROR [bookshop-srv] 34 HTTP 500 errors/min (baseline: 0.1). Error rate: 42.8%.
+2024-04-12T11:05:33.003Z ERROR [bookshop-srv] ALERT FIRED: P2 – bookshop-srv request timeouts on GET /api/books, DB connection pool exhausted

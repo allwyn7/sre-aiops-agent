@@ -1,0 +1,46 @@
+2024-04-14T16:25:01.003Z INFO  [bookshop-srv] Starting BookshopApplication v1.4.4 on prod-pod-2e7f8c with PID 1
+2024-04-14T16:25:02.112Z INFO  [bookshop-srv] The following profiles are active: cloud,prod
+2024-04-14T16:25:03.334Z INFO  [bookshop-srv] HikariPool-1 - Starting...
+2024-04-14T16:25:03.501Z INFO  [bookshop-srv] HikariPool-1 - PostgreSQL connection established. Pool size: 10
+2024-04-14T16:25:04.115Z INFO  [bookshop-srv] Initializing XSUAA security configuration...
+2024-04-14T16:25:04.220Z INFO  [bookshop-srv] XSUAA config loaded: xsappname=bookshop-prod-eu20-v2, uaadomain=authentication.eu20.hana.ondemand.com
+2024-04-14T16:25:04.225Z WARN  [bookshop-srv] XSUAA xsappname changed from 'bookshop-prod-eu20' to 'bookshop-prod-eu20-v2'. Ensure all service bindings use the new name.
+2024-04-14T16:25:04.891Z INFO  [bookshop-srv] Tomcat started on port(s): 8080 (http)
+2024-04-14T16:25:04.903Z INFO  [bookshop-srv] Started BookshopApplication in 3.9 seconds (process running for 4.1)
+
+2024-04-14T16:30:01.112Z INFO  [bookshop-srv] GET /api/books - Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
+2024-04-14T16:30:01.125Z ERROR [bookshop-srv] XSUAA token validation failed
+
+com.sap.cloud.security.xsuaa.token.TokenValidationException: JWT token validation failed: audience validation error
+	at com.sap.cloud.security.xsuaa.token.XsuaaTokenValidator.validate(XsuaaTokenValidator.java:89)
+	at com.sap.cloud.security.xsuaa.token.authentication.XsuaaJwtDecoderBuilder$XsuaaJwtDecoder.decode(XsuaaJwtDecoderBuilder.java:112)
+	at org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider.authenticate(JwtAuthenticationProvider.java:88)
+Caused by: com.sap.cloud.security.xsuaa.token.AudienceValidationException: JWT token audience 'bookshop-prod-eu20!t12345' does not match configured xsappname 'bookshop-prod-eu20-v2!t12345'.
+	Expected audience: bookshop-prod-eu20-v2!t12345
+	Actual audience:   bookshop-prod-eu20!t12345
+	at com.sap.cloud.security.xsuaa.token.AudienceValidator.validate(AudienceValidator.java:45)
+	... 28 common frames omitted
+
+2024-04-14T16:30:01.127Z WARN  [bookshop-srv] HTTP 401 on GET /api/books: XSUAA audience mismatch – token issued for old subaccount 'bookshop-prod-eu20', server expects 'bookshop-prod-eu20-v2'
+
+2024-04-14T16:30:05.201Z INFO  [bookshop-srv] GET /api/books/1 - Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
+2024-04-14T16:30:05.210Z ERROR [bookshop-srv] XSUAA token validation failed: audience validation error
+2024-04-14T16:30:05.212Z WARN  [bookshop-srv] HTTP 401 on GET /api/books/1: JWT audience mismatch
+
+2024-04-14T16:30:10.003Z INFO  [bookshop-srv] GET /api/books/search?q=java - Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
+2024-04-14T16:30:10.015Z ERROR [bookshop-srv] XSUAA token validation failed: audience validation error
+2024-04-14T16:30:10.017Z WARN  [bookshop-srv] HTTP 401 on GET /api/books/search: JWT audience mismatch
+
+2024-04-14T16:31:00.001Z ERROR [bookshop-srv] Service-to-service call from order-srv FAILED: HTTP 403 Forbidden
+2024-04-14T16:31:00.003Z ERROR [bookshop-srv] XSUAA scope validation failed: token scope 'bookshop-prod-eu20!t12345.Read' does not match required scope 'bookshop-prod-eu20-v2!t12345.Read'
+	at com.sap.cloud.security.spring.config.XsuaaTokenAuthorizationConverter.convert(XsuaaTokenAuthorizationConverter.java:67)
+	at org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider.authenticate(JwtAuthenticationProvider.java:95)
+
+2024-04-14T16:31:30.100Z WARN  [bookshop-srv] Health check /actuator/health – endpoint returning 401 to BTP health probe (missing valid JWT)
+2024-04-14T16:31:30.102Z ERROR [bookshop-srv] BTP Availability Check FAILED: bookshop-srv authentication broken – 0% successful requests
+
+2024-04-14T16:32:00.001Z ERROR [bookshop-srv] 120 HTTP 401 errors/min. 45 HTTP 403 errors/min. 0 HTTP 200 responses.
+2024-04-14T16:32:00.003Z ERROR [bookshop-srv] All user sessions invalidated: existing JWTs were issued for xsappname 'bookshop-prod-eu20', but server config now requires 'bookshop-prod-eu20-v2'
+
+2024-04-14T16:33:10.001Z ERROR [bookshop-srv] 165 XSUAA token validation failures in last 5 minutes. Zero successful authentications.
+2024-04-14T16:33:10.003Z ERROR [bookshop-srv] ALERT FIRED: P1 – bookshop-srv complete authentication failure, all endpoints returning 401/403

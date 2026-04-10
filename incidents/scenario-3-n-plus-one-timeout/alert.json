@@ -1,0 +1,36 @@
+{
+  "incident_id": "INC-2024-003",
+  "scenario": "scenario-3-n-plus-one-timeout",
+  "title": "bookshop-srv: request timeouts on GET /api/books – N+1 query explosion after BookRepository change",
+  "severity": "P2",
+  "service": "bookshop-srv",
+  "environment": "production",
+  "timestamp": "2024-04-12T11:05:33Z",
+  "alert_source": "SAP BTP Application Logging",
+  "metrics": {
+    "avg_response_time_ms": 8750,
+    "avg_response_time_baseline_ms": 92,
+    "p99_response_time_ms": 31200,
+    "http_5xx_rate_per_min": 34,
+    "http_5xx_baseline_per_min": 0.1,
+    "affected_endpoints": [
+      "GET /api/books"
+    ],
+    "error_rate_percent": 42.8,
+    "db_queries_per_request": 1205,
+    "db_queries_per_request_baseline": 1,
+    "db_connection_pool_exhausted_count": 47
+  },
+  "labels": {
+    "app": "bookshop",
+    "component": "catalog-service",
+    "btp_space": "prod",
+    "btp_org": "sap-internal-demo",
+    "runtime": "spring-boot-3.2",
+    "db": "sap-hana-cloud"
+  },
+  "blame_pr_number": 55,
+  "blame_pr_title": "feat: include author details in book listing response",
+  "blame_commit_sha": "e7b2f91",
+  "blame_commit_message": "feat: change Author fetch type from LAZY to EAGER and add author name to book response DTO"
+}

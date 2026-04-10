@@ -1,0 +1,52 @@
+2024-04-10T14:18:51.003Z INFO  [bookshop-srv] Starting BookshopApplication v1.4.2 on prod-pod-7f9b4c with PID 1
+2024-04-10T14:18:52.441Z INFO  [bookshop-srv] The following profiles are active: cloud,prod
+2024-04-10T14:18:53.887Z INFO  [bookshop-srv] HikariPool-1 - Starting...
+2024-04-10T14:18:54.102Z INFO  [bookshop-srv] HikariPool-1 - PostgreSQL connection established. Pool size: 10
+2024-04-10T14:18:54.891Z INFO  [bookshop-srv] Tomcat started on port(s): 8080 (http)
+2024-04-10T14:18:54.903Z INFO  [bookshop-srv] Started BookshopApplication in 3.9 seconds (process running for 4.1)
+
+2024-04-10T14:19:02.114Z INFO  [bookshop-srv] GET /api/books - User: user@example.com (XSUAA JWT validated)
+2024-04-10T14:19:02.219Z ERROR [bookshop-srv] Servlet.service() for servlet [dispatcherServlet] threw exception
+
+org.springframework.dao.InvalidDataAccessResourceUsageException: could not extract ResultSet; SQL [n/a]; nested exception is org.hibernate.exception.SQLGrammarException: could not extract ResultSet
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:259)
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.translateExceptionIfPossible(HibernateJpaDialect.java:233)
+	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.translateExceptionIfPossible(AbstractEntityManagerFactoryBean.java:551)
+	at org.springframework.dao.support.ChainedPersistenceExceptionTranslator.translateExceptionIfPossible(ChainedPersistenceExceptionTranslator.java:61)
+	at com.sap.demo.bookshop.service.BookService.findAll(BookService.java:42)
+	at com.sap.demo.bookshop.controller.BookController.getAllBooks(BookController.java:38)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+Caused by: org.hibernate.exception.SQLGrammarException: could not extract ResultSet
+	at org.hibernate.exception.internal.SQLStateConversionDelegate.convert(SQLStateConversionDelegate.java:36)
+	at org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:37)
+Caused by: org.postgresql.util.PSQLException: ERROR: column "price_old" does not exist
+  Position: 45
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2725)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2425)
+	... 42 common frames omitted
+
+2024-04-10T14:19:02.221Z ERROR [bookshop-srv] HTTP 500 on GET /api/books: SQLGrammarException - column "price_old" does not exist
+
+2024-04-10T14:19:02.890Z INFO  [bookshop-srv] GET /api/books/1 - User: admin@example.com
+2024-04-10T14:19:02.901Z ERROR [bookshop-srv] could not extract ResultSet; nested exception is org.hibernate.exception.SQLGrammarException
+Caused by: org.postgresql.util.PSQLException: ERROR: column "price_old" does not exist
+
+2024-04-10T14:19:03.120Z ERROR [bookshop-srv] HTTP 500 on GET /api/books/1: SQLGrammarException - column "price_old" does not exist
+
+2024-04-10T14:19:03.445Z INFO  [bookshop-srv] GET /api/books/search?q=java - User: user2@example.com
+2024-04-10T14:19:03.451Z ERROR [bookshop-srv] HTTP 500 on GET /api/books/search: SQLGrammarException - column "price_old" does not exist
+
+2024-04-10T14:19:04.001Z WARN  [bookshop-srv] Health check /actuator/health returning DOWN – DataSource validation query failed
+2024-04-10T14:19:04.003Z ERROR [bookshop-srv] BTP Availability Check FAILED: bookshop-srv is reporting UNHEALTHY
+
+2024-04-10T14:19:05.112Z ERROR [bookshop-srv] 91 errors in last 60 seconds. Error rate: 96.1%. Threshold: 5%.
+2024-04-10T14:19:05.115Z ERROR [bookshop-srv] ALERT FIRED: P1 – bookshop-srv HTTP 500 spike on /api/books
+
+2024-04-10T14:19:07.003Z INFO  [bookshop-srv] GET /actuator/health - BTP health probe
+2024-04-10T14:19:07.005Z WARN  [bookshop-srv] {"status":"DOWN","components":{"db":{"status":"DOWN","details":{"error":"org.postgresql.util.PSQLException: ERROR: column \"price_old\" does not exist"}}}}
+
+2024-04-10T14:19:10.221Z ERROR [bookshop-srv] could not extract ResultSet; column "price_old" does not exist
+2024-04-10T14:19:10.334Z ERROR [bookshop-srv] could not extract ResultSet; column "price_old" does not exist
+2024-04-10T14:19:10.445Z ERROR [bookshop-srv] could not extract ResultSet; column "price_old" does not exist
+2024-04-10T14:19:10.556Z ERROR [bookshop-srv] could not extract ResultSet; column "price_old" does not exist
+2024-04-10T14:19:10.667Z ERROR [bookshop-srv] could not extract ResultSet; column "price_old" does not exist

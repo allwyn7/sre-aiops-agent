@@ -1,0 +1,54 @@
+2024-04-08T09:30:01.012Z INFO  [bookshop-srv] Starting BookshopApplication v1.4.1 on prod-pod-5d8a3b with PID 1
+2024-04-08T09:30:02.341Z INFO  [bookshop-srv] The following profiles are active: cloud,prod
+2024-04-08T09:30:03.112Z INFO  [bookshop-srv] HikariPool-1 - Starting...
+2024-04-08T09:30:03.298Z INFO  [bookshop-srv] HikariPool-1 - PostgreSQL connection established. Pool size: 10
+2024-04-08T09:30:04.002Z INFO  [bookshop-srv] Tomcat started on port(s): 8080 (http)
+2024-04-08T09:30:04.015Z INFO  [bookshop-srv] Started BookshopApplication in 3.0 seconds (process running for 3.2)
+
+2024-04-08T09:30:15.201Z INFO  [bookshop-srv] GET /api/books - User: user@example.com (XSUAA JWT validated)
+2024-04-08T09:30:15.210Z INFO  [bookshop-srv] BookService.findAll() – cache MISS, loading from DB
+2024-04-08T09:30:15.245Z INFO  [bookshop-srv] BookService.findAll() – cached 4 books (heap: 210MB / 512MB)
+
+2024-04-08T09:35:22.100Z INFO  [bookshop-srv] GET /api/books/search?q=java – cache MISS, loading from DB
+2024-04-08T09:35:22.105Z INFO  [bookshop-srv] BookService.search() – cached query "java" result: 1 books (heap: 215MB / 512MB)
+2024-04-08T09:35:23.001Z INFO  [bookshop-srv] GET /api/books/search?q=clean – cache MISS
+2024-04-08T09:35:23.006Z INFO  [bookshop-srv] BookService.search() – cached query "clean" result: 1 books (heap: 218MB / 512MB)
+
+2024-04-08T09:40:01.003Z WARN  [bookshop-srv] JVM heap usage high: 412MB / 512MB (80.4%). Cache entries: 18,442
+2024-04-08T09:40:15.112Z WARN  [bookshop-srv] JVM heap usage critical: 467MB / 512MB (91.2%). Cache entries: 24,117
+2024-04-08T09:40:15.115Z WARN  [bookshop-srv] GC overhead limit approaching – consecutive full GC cycles detected
+
+2024-04-08T09:41:02.221Z ERROR [bookshop-srv] GET /api/books – request failed after 11,203ms
+2024-04-08T09:41:02.223Z ERROR [bookshop-srv] Servlet.service() for servlet [dispatcherServlet] threw exception
+
+java.lang.OutOfMemoryError: Java heap space
+	at java.base/java.util.HashMap.resize(HashMap.java:704)
+	at java.base/java.util.HashMap.putVal(HashMap.java:630)
+	at java.base/java.util.HashMap.put(HashMap.java:607)
+	at com.sap.demo.bookshop.service.BookService.findAll(BookService.java:35)
+	at com.sap.demo.bookshop.controller.BookController.getAllBooks(BookController.java:38)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:897)
+
+2024-04-08T09:41:02.225Z ERROR [bookshop-srv] HTTP 500 on GET /api/books: java.lang.OutOfMemoryError: Java heap space
+
+2024-04-08T09:41:10.003Z WARN  [bookshop-srv] Health check /actuator/health returning DOWN – JVM heap exhausted
+2024-04-08T09:41:10.005Z ERROR [bookshop-srv] BTP Availability Check FAILED: bookshop-srv is reporting UNHEALTHY
+
+2024-04-08T09:41:15.112Z ERROR [bookshop-srv] java.lang.OutOfMemoryError: Java heap space
+	at com.sap.demo.bookshop.service.BookService.search(BookService.java:52)
+	at com.sap.demo.bookshop.controller.BookController.search(BookController.java:48)
+
+2024-04-08T09:41:30.001Z ERROR [bookshop-srv] java.lang.OutOfMemoryError: GC overhead limit exceeded
+	at org.hibernate.sql.results.internal.RowTransformerStandardImpl.transformRow(RowTransformerStandardImpl.java:42)
+
+2024-04-08T09:41:45.003Z ERROR [bookshop-srv] BTP CF container restarting pod prod-pod-5d8a3b (OOMKilled, exit code 137)
+2024-04-08T09:41:46.001Z INFO  [bookshop-srv] Starting BookshopApplication v1.4.1 on prod-pod-5d8a3b with PID 1
+2024-04-08T09:41:48.220Z INFO  [bookshop-srv] Started BookshopApplication in 2.2 seconds (process running for 2.4)
+
+2024-04-08T09:42:05.100Z WARN  [bookshop-srv] JVM heap usage high: 389MB / 512MB (75.9%). Cache entries: 15,203
+2024-04-08T09:42:10.330Z ERROR [bookshop-srv] java.lang.OutOfMemoryError: Java heap space
+2024-04-08T09:42:15.001Z ERROR [bookshop-srv] BTP CF container restarting pod prod-pod-5d8a3b (OOMKilled, exit code 137)
+
+2024-04-08T09:42:17.003Z ERROR [bookshop-srv] 12 pod restarts in last 60 minutes. Restart loop detected.
+2024-04-08T09:42:17.005Z ERROR [bookshop-srv] ALERT FIRED: P1 – bookshop-srv OOMKilled restart loop, JVM heap exhausted

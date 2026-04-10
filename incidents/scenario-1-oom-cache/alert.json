@@ -1,0 +1,37 @@
+{
+  "incident_id": "INC-2024-001",
+  "scenario": "scenario-1-oom-cache",
+  "title": "bookshop-srv: OutOfMemoryError – unbounded in-memory cache in BookService",
+  "severity": "P1",
+  "service": "bookshop-srv",
+  "environment": "production",
+  "timestamp": "2024-04-08T09:42:17Z",
+  "alert_source": "SAP BTP Application Logging",
+  "metrics": {
+    "jvm_heap_used_percent": 98.7,
+    "jvm_heap_baseline_percent": 45,
+    "pod_restarts_last_hour": 12,
+    "http_5xx_rate_per_min": 67,
+    "http_5xx_baseline_per_min": 0.3,
+    "affected_endpoints": [
+      "GET /api/books",
+      "GET /api/books/{id}",
+      "GET /api/books/search"
+    ],
+    "error_rate_percent": 78.4,
+    "avg_response_time_ms": 12400,
+    "avg_response_time_baseline_ms": 85
+  },
+  "labels": {
+    "app": "bookshop",
+    "component": "catalog-service",
+    "btp_space": "prod",
+    "btp_org": "sap-internal-demo",
+    "runtime": "spring-boot-3.2",
+    "db": "sap-hana-cloud"
+  },
+  "blame_pr_number": 48,
+  "blame_pr_title": "perf: add in-memory cache to BookService for faster reads",
+  "blame_commit_sha": "a3f7c22",
+  "blame_commit_message": "perf: cache all book queries in a static HashMap to avoid repeated DB hits"
+}
