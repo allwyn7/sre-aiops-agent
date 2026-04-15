@@ -93,6 +93,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_URL:     ${{ github.api_url }}
           GITHUB_REPO:        ${{ github.repository }}
           FAILED_PR_NUMBER:   ${{ steps.find-pr.outputs.pr_number }}
           FAILED_RUN_ID:      ${{ steps.find-pr.outputs.run_id }}

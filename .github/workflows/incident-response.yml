@@ -49,6 +49,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_URL:       ${{ github.api_url }}
           GITHUB_REPO:          ${{ github.repository }}
           INCIDENT_SCENARIO:    ${{ inputs.scenario }}
           TARGET_ISSUE_NUMBER:  ${{ inputs.issue_number }}
