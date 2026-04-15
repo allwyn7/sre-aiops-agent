@@ -1,4 +1,4 @@
-export async function createDiagnosisIssue(github, { alert, diagnosis, remediation, targetIssueNumber, sreArtifacts, artifactPaths }) {
+export async function createDiagnosisIssue(github, { alert, diagnosis, remediation, targetIssueNumber, sreArtifacts, artifactPaths, recentPRs, confidenceOverrideNote }) {
   const { diagnosis: d } = diagnosis;
 
   // Build Mermaid incident timeline
@@ -13,6 +13,22 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     ? `\n> **Known pattern:** This matches a previously resolved incident (${d.similar_past_incident}). Resolution was accelerated using the knowledge base.\n`
     : '';
 
+  // Confidence warning — shown prominently when agent is not certain
+  const confidenceWarning = d.confidence !== 'high'
+    ? [
+        '',
+        `> [!WARNING]`,
+        `> **Agent confidence: ${d.confidence.toUpperCase()}** — This diagnosis has uncertainty. Review the evidence trail below before acting on the fix PR.`,
+        ...(confidenceOverrideNote ? [`> `, `> ${confidenceOverrideNote}`] : []),
+        '',
+      ].join('\n')
+    : '';
+
+  // Evidence trail — what the agent actually looked at
+  const prSummaryLines = (recentPRs || []).slice(0, 5).map(
+    pr => `| #${pr.number} | ${pr.title.slice(0, 60)} | ${pr.author} | ${pr.merged_at?.slice(0, 10) ?? 'open'} |`
+  );
+
   const repoUrl = `https://github.com/${process.env.GITHUB_REPO}`;
 
   const body = [
@@ -20,6 +36,7 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     '',
     `> **Severity:** ${alert.severity} | **Service:** \`${alert.service}\` | **Time:** ${alert.timestamp}`,
     similarPastNote,
+    confidenceWarning,
     '---',
     '',
     '### Incident Timeline',
@@ -78,6 +95,28 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     ...Object.entries(alert.metrics || {}).filter(([k]) => !k.startsWith('affected')).map(
       ([key, value]) => `| \`${key}\` | ${value} | _see alert_ |`
     ),
+    '',
+    '---',
+    '',
+    '### Agent Evidence Trail',
+    '',
+    '_What the agent analyzed to reach this diagnosis:_',
+    '',
+    `- **Alert payload:** \`incidents/${process.env.INCIDENT_SCENARIO}/alert.json\` — service \`${alert.service}\`, severity \`${alert.severity}\``,
+    `- **Application logs:** \`incidents/${process.env.INCIDENT_SCENARIO}/logs.txt\` — analyzed for stack traces and error patterns`,
+    `- **Blame PR:** #${d.blame_pr_number} — ${d.blame_pr_reasoning}`,
+    `- **Diagnosis confidence:** \`${d.confidence}\` — ${d.confidence === 'high' ? 'strong signal, blame PR diff matches error pattern' : d.confidence === 'medium' ? 'moderate signal, blame PR is likely but not certain' : 'weak signal — logs inconclusive or blame PR diff does not clearly match'}`,
+    '',
+    ...(prSummaryLines.length ? [
+      '<details>',
+      '<summary>Recent PRs reviewed by agent (last 5)</summary>',
+      '',
+      '| PR | Title | Author | Merged |',
+      '|----|-------|--------|--------|',
+      ...prSummaryLines,
+      '',
+      '</details>',
+    ] : []),
   ];
 
   // ── Enhanced sections from SRE artifacts ──────────────────────────────────

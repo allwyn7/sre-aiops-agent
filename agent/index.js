@@ -69,10 +69,22 @@ async function run() {
   console.log(`   Root cause: ${diagnosisRaw.diagnosis.summary}`);
 
   // 4. Generate remediation with LLM ─────────────────────────────────────────
+  // Confidence gate: low confidence → force pr_rollback (safest action).
+  // medium confidence → allow targeted fix but the Issue will show a warning.
+  const diagnosedType   = diagnosisRaw.remediation_type;
+  const confidence      = diagnosisRaw.diagnosis?.confidence ?? 'low';
+  const remediationType = confidence === 'low' ? 'pr_rollback' : diagnosedType;
+
+  if (confidence === 'low' && diagnosedType !== 'pr_rollback') {
+    console.log(`⚠️  Confidence is LOW — overriding remediation from '${diagnosedType}' → 'pr_rollback' (safest action)`);
+  } else if (confidence === 'medium') {
+    console.log(`⚠️  Confidence is MEDIUM — proceeding with '${remediationType}' but Issue will carry a warning`);
+  }
+
   console.log('🔧 Calling LLM for remediation plan...');
   const remediationRaw = await llm.remediate({
     diagnosisJson:          diagnosisRaw,
-    remediationType:        diagnosisRaw.remediation_type,
+    remediationType,
     incidentId:             alert.incident_id,
     currentFlywayVersion,
   });
@@ -105,11 +117,15 @@ async function run() {
   console.log('📝 Creating post-incident GitHub Issue...');
   const issueUrl = await createDiagnosisIssue(github, {
     alert,
-    diagnosis:         diagnosisRaw,
-    remediation:       remediationRaw,
-    targetIssueNumber: TARGET_ISSUE_NUMBER ? parseInt(TARGET_ISSUE_NUMBER) : null,
+    diagnosis:              diagnosisRaw,
+    remediation:            remediationRaw,
+    targetIssueNumber:      TARGET_ISSUE_NUMBER ? parseInt(TARGET_ISSUE_NUMBER) : null,
     sreArtifacts,
-    artifactPaths:     sreArtifacts ? artifactPaths : null,
+    artifactPaths:          sreArtifacts ? artifactPaths : null,
+    recentPRs,
+    confidenceOverrideNote: confidence === 'low' && diagnosedType !== 'pr_rollback'
+      ? `Diagnosis confidence was LOW — remediation downgraded from \`${diagnosedType}\` to \`pr_rollback\` for safety. Human review of root cause is required before a targeted fix is attempted.`
+      : null,
   });
   console.log(`   Issue: ${issueUrl}`);
 
