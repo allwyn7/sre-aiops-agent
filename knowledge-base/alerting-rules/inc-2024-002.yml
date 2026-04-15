@@ -3,13 +3,14 @@
 # Date: 2024-04-10
 
 groups:
-  - name: bookshop-srv-alerts
+  - name: bookshop-srv-high-500-alert
     rules:
-      - alert: High_HTTP_500_Rate
-        expr: sum(rate(http_requests_total{status=~"5.."}[1m])) > 50
-        for: 2m
+      - alert: BookshopHigh500Errors
+        expr: rate(http_server_requests{status=~"5.."}[1m]) > 5
+        for: 1m
         labels:
+          service: bookshop-srv
           severity: P1
         annotations:
-          summary: High rate of HTTP 500 errors in bookshop-srv
-          description: "HTTP 500 errors exceed 50/min. Investigate possible schema drift or backend service issues."
+          summary: "HTTP 500 error spike detected on bookshop-srv"
+          description: "High rate of HTTP 500 errors (> 5/min) on the Bookshop service's API endpoints. Immediate investigation required."
