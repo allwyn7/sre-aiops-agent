@@ -157,3 +157,21 @@ Investigate whether a recent PR modified a JPA entity to use EAGER fetch type fo
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/25
 
 ---
+## INC-2024-004 — 2024-04-14
+
+**Title:** bookshop-srv: HTTP 401/403 on all endpoints – XSUAA token validation failing after security config change
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`com.sap.cloud.security.xsuaa.token.TokenValidationException: JWT token audience '...' does not match configured xsappname '...'`
+
+### Root Cause
+PR #58 updated xsappname in the Spring security configuration to 'bookshop-prod-eu20-v2' after migrating to a new BTP subaccount, but existing JWTs were issued for the old value 'bookshop-prod-eu20'. This mismatch caused audience validation failures in XSUAA token processing.
+
+### Resolution
+When xsappname changes after a migration or service binding update, rebind the XSUAA service and restart the application to ensure new tokens are issued with the updated audience. Validate configuration and audience alignment in startup health checks.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/26
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/27
+
+---
