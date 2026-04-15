@@ -1,0 +1,10 @@
+# Adjust resource limits and HPA for bookshop-srv.
+bookshop-srv:
+  resources:
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  hpa:
+    maxReplicas: 10
+    targetCPUUtilization: 70
+  replicas: 8
