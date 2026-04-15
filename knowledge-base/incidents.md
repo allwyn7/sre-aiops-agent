@@ -121,3 +121,21 @@ Set `"deep_reads": false` in `package.json` under `cds.features` to immediately 
 **Fix PR:** https://github.tools.sap/I527229/sre-aiops-agent-hackathon/pull/14
 
 ---
+## INC-2024-002 — 2024-04-10
+
+**Title:** bookshop-srv: HTTP 500 spike – Hibernate SQLGrammarException on Books endpoint
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`org.postgresql.util.PSQLException: ERROR: column does not exist`
+
+### Root Cause
+PR #52 removed 'priceOld' from Book.java, but the PostgreSQL schema was not updated to drop the column. Hibernate attempts to query a non-existent column, resulting in 'ERROR: column "price_old" does not exist'.
+
+### Resolution
+Add a Flyway migration to drop the column from PostgreSQL, matching the JPA entity state. Ensure migrations are applied before deploying code changes that depend on altered schema.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/22
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/23
+
+---
