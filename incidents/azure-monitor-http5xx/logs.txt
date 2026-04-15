@@ -1,0 +1,30 @@
+2024-04-15T14:21:03Z INFO  BookshopApiApplication - Starting BookshopApiApplication v2.4.1
+2024-04-15T14:21:04Z INFO  DataSourceConfig - Azure SQL connection pool initialized: maxPoolSize=10
+2024-04-15T14:23:07Z INFO  OrderController - POST /api/orders/bulk — received bulk order request, count=1247
+2024-04-15T14:23:07Z INFO  OrderService - Processing 1247 orders without pagination
+2024-04-15T14:23:07Z DEBUG OrderRepository - Executing query: SELECT * FROM orders WHERE status = 'PENDING'
+2024-04-15T14:23:08Z WARN  HikariPool-1 - Connection pool exhaustion imminent: active=10/10, pending=23
+2024-04-15T14:23:09Z ERROR HikariPool-1 - Unable to acquire connection from pool after 30000ms
+  com.zaxxer.hikari.pool.HikariPool$PoolTimeoutException: HikariPool-1 - Connection is not available, request timed out after 30000ms.
+    at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:213)
+    at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+    at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+    at com.bookshop.api.repository.OrderRepository.findPendingOrders(OrderRepository.java:87)
+2024-04-15T14:23:09Z ERROR OrderController - POST /api/orders/bulk — 500 Internal Server Error
+  org.springframework.dao.DataAccessException: Could not obtain JDBC Connection
+    at org.springframework.jdbc.datasource.DataSourceUtils.getConnection(DataSourceUtils.java:90)
+    at com.bookshop.api.service.OrderService.processBulkOrders(OrderService.java:134)
+    at com.bookshop.api.controller.OrderController.bulkProcess(OrderController.java:72)
+2024-04-15T14:23:09Z WARN  OrderController - Returning HTTP 500 to client
+2024-04-15T14:23:10Z INFO  OrderController - POST /api/orders/bulk — received bulk order request, count=892
+2024-04-15T14:23:10Z DEBUG OrderRepository - Executing query: SELECT * FROM orders WHERE status = 'PENDING'
+2024-04-15T14:23:10Z ERROR HikariPool-1 - Unable to acquire connection from pool after 30000ms
+  com.zaxxer.hikari.pool.HikariPool$PoolTimeoutException: HikariPool-1 - Connection is not available, request timed out after 30000ms.
+2024-04-15T14:23:10Z ERROR OrderController - POST /api/orders/bulk — 500 Internal Server Error
+2024-04-15T14:23:11Z WARN  Azure Monitor Alert - HighHttp5xxRate threshold exceeded: 142/min (threshold: 10)
+2024-04-15T14:23:11Z INFO  Azure Monitor - Webhook dispatched to: github-dispatch
+2024-04-15T14:23:12Z ERROR HikariPool-1 - Connection pool saturated. All 10 connections held by bulk-order queries.
+2024-04-15T14:23:12Z WARN  OrderService - SELECT * FROM orders WHERE status = 'PENDING' returned 12,847 rows — no LIMIT clause
+2024-04-15T14:23:12Z ERROR OrderController - Multiple concurrent bulk requests overwhelming pool: pending=41 connections
+2024-04-15T14:23:15Z FATAL BookshopApiApplication - Azure App Service CPU at 94.2%, memory at 88.1% — approaching resource limits
+2024-04-15T14:23:20Z WARN  HealthCheckController - GET /actuator/health returning DEGRADED — DB connectivity failing

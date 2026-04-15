@@ -1,0 +1,111 @@
+name: Azure Monitor Alert — Incident Response
+
+# Triggered by Azure Monitor via a repository_dispatch webhook.
+#
+# To wire Azure Monitor to this workflow:
+# 1. Create an Azure Monitor Action Group with a "Webhook" action type.
+# 2. Set the webhook URL to:
+#    https://api.github.com/repos/{owner}/{repo}/dispatches
+# 3. Set the request body:
+#    {
+#      "event_type": "azure-monitor-alert",
+#      "client_payload": {
+#        "azure_alert": <Azure Monitor Common Alert Schema payload>,
+#        "blame_pr_number": 123,      // optional: the PR that caused this
+#        "incident_scenario": "azure-monitor"
+#      }
+#    }
+# 4. Add an Authorization header: Bearer <GitHub PAT with repo write scope>
+#
+# For local testing / demos, trigger manually:
+#   gh api repos/{owner}/{repo}/dispatches \
+#     -f event_type=azure-monitor-alert \
+#     -F client_payload[incident_scenario]=azure-monitor-http5xx
+on:
+  repository_dispatch:
+    types: [azure-monitor-alert]
+
+  # Also allow manual trigger for demos
+  workflow_dispatch:
+    inputs:
+      incident_scenario:
+        description: 'Use a pre-built scenario instead of a live Azure alert'
+        required: false
+        default: 'azure-monitor-http5xx'
+        type: choice
+        options:
+          - azure-monitor-http5xx
+          - azure-monitor-sql-pool
+
+jobs:
+  incident-response:
+    name: Run AIOps Agent (Azure Monitor Alert)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: agent/package-lock.json
+
+      - name: Install agent dependencies
+        working-directory: agent
+        run: npm ci
+
+      # Determine the incident scenario:
+      # - If triggered by repository_dispatch with a real Azure alert,
+      #   write the payload to a temp file and use the azure-monitor adapter.
+      # - If triggered manually (workflow_dispatch), use a pre-built scenario.
+      - name: Resolve incident scenario
+        id: resolve
+        env:
+          DISPATCH_PAYLOAD:  ${{ toJSON(github.event.client_payload) }}
+          MANUAL_SCENARIO:   ${{ inputs.incident_scenario }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            SCENARIO="${{ github.event.client_payload.incident_scenario }}"
+            SCENARIO="${SCENARIO:-azure-monitor}"
+            echo "scenario=${SCENARIO}" >> "$GITHUB_OUTPUT"
+            echo "mode=live" >> "$GITHUB_OUTPUT"
+            # Write the raw Azure alert payload to a file the adapter can read
+            echo '${{ toJSON(github.event.client_payload.azure_alert) }}' \
+              > /tmp/azure_alert_payload.json
+            echo "blame_pr=${{ github.event.client_payload.blame_pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "scenario=${MANUAL_SCENARIO}" >> "$GITHUB_OUTPUT"
+            echo "mode=demo" >> "$GITHUB_OUTPUT"
+            echo "blame_pr=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run AIOps Agent
+        working-directory: agent
+        env:
+          GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
+          GH_MODELS_TOKEN:    ${{ secrets.GH_MODELS_TOKEN }}
+          GITHUB_REPO:        ${{ github.repository }}
+          INCIDENT_SCENARIO:  ${{ steps.resolve.outputs.scenario }}
+          AZURE_ALERT_FILE:   /tmp/azure_alert_payload.json
+          AZURE_BLAME_PR:     ${{ steps.resolve.outputs.blame_pr }}
+          RUN_ID:             ${{ github.run_id }}
+        run: node index.js
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## Azure Monitor → AIOps Agent" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trigger | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Scenario | ${{ steps.resolve.outputs.scenario }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Mode | ${{ steps.resolve.outputs.mode }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Run | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> "$GITHUB_STEP_SUMMARY"

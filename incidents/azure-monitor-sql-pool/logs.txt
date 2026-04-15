@@ -1,0 +1,21 @@
+2024-04-15T16:43:10Z INFO  BookshopApiApplication - Starting BookshopApiApplication v2.4.2
+2024-04-15T16:43:11Z INFO  DataSourceConfig - Azure SQL connection pool: maxPoolSize=10, connectionTimeout=30000ms
+2024-04-15T16:45:05Z INFO  RecommendationController - GET /api/recommendations/user/9872 — generating personalised recommendations
+2024-04-15T16:45:05Z DEBUG ProductRecommendationService - Loading purchase history for user 9872
+2024-04-15T16:45:05Z DEBUG PurchaseHistoryRepository - SELECT p.*, oi.*, o.* FROM purchase_history p JOIN order_items oi ON p.id = oi.purchase_id JOIN orders o ON oi.order_id = o.id WHERE p.user_id = 9872
+2024-04-15T16:45:06Z WARN  PurchaseHistoryRepository - Query returned 4,847 rows (user has 3 years of purchase history)
+2024-04-15T16:45:06Z WARN  HikariPool-1 - Connection held for >5000ms on thread recommendation-pool-3
+2024-04-15T16:45:07Z INFO  RecommendationController - GET /api/recommendations/user/10201 — generating personalised recommendations
+2024-04-15T16:45:07Z DEBUG PurchaseHistoryRepository - SELECT p.*, oi.*, o.* FROM purchase_history p JOIN order_items oi ON p.id = oi.purchase_id JOIN orders o ON oi.order_id = o.id WHERE p.user_id = 10201
+2024-04-15T16:45:08Z WARN  HikariPool-1 - Connection pool: active=9/10, pending=8
+2024-04-15T16:45:10Z ERROR HikariPool-1 - Connection is not available, request timed out after 30000ms
+  com.zaxxer.hikari.pool.HikariPool$PoolTimeoutException: HikariPool-1 - Connection is not available, request timed out after 30000ms.
+    at com.bookshop.api.service.ProductRecommendationService.getUserRecommendations(ProductRecommendationService.java:89)
+    at com.bookshop.api.controller.RecommendationController.getRecommendations(RecommendationController.java:54)
+2024-04-15T16:45:15Z WARN  Azure SQL - DTU consumption: 97.3% (threshold: 80%) — alert firing
+2024-04-15T16:45:15Z WARN  Azure SQL - Deadlocks detected: 14/min — multiple recommendation queries competing for same rows
+2024-04-15T16:45:30Z WARN  Azure Monitor - HighDTUConsumption alert fired: dtu_percent=97.3 threshold=80
+2024-04-15T16:45:30Z INFO  Azure Monitor - Webhook dispatched to: github-dispatch
+2024-04-15T16:45:35Z ERROR RecommendationController - GET /api/recommendations returning HTTP 504 Gateway Timeout — pool exhausted
+2024-04-15T16:45:36Z ERROR OrderController - GET /api/orders returning HTTP 504 — shared connection pool starved by recommendation queries
+2024-04-15T16:45:40Z WARN  BookshopApiApplication - Cascade: recommendation pool exhaustion starving all other endpoints

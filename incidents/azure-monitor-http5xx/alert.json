@@ -1,0 +1,33 @@
+{
+  "incident_id": "INC-AZ-2024-001",
+  "scenario": "azure-monitor-http5xx",
+  "title": "bookshop-api: HTTP 5xx spike — 142 errors/min on Azure App Service",
+  "severity": "P1",
+  "service": "bookshop-api",
+  "environment": "production",
+  "timestamp": "2024-04-15T14:23:07Z",
+  "alert_source": "Azure Monitor (Microsoft.Web/sites)",
+  "metrics": {
+    "http_5xx_count_per_min": 142,
+    "http_5xx_threshold": 10,
+    "http_2xx_count_per_min": 18,
+    "avg_response_time_ms": 8740,
+    "avg_response_time_baseline_ms": 120,
+    "app_service_cpu_percent": 94.2,
+    "app_service_memory_percent": 88.1,
+    "error_rate_percent": 88.7
+  },
+  "labels": {
+    "azure_resource_id": "/subscriptions/a1b2c3d4/resourceGroups/sap-prod-rg/providers/Microsoft.Web/sites/bookshop-api",
+    "azure_resource_group": "sap-prod-rg",
+    "azure_subscription": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+    "azure_alert_rule": "HighHttp5xxRate",
+    "signal_type": "Metric",
+    "runtime": "java-17",
+    "db": "azure-sql"
+  },
+  "blame_pr_number": 61,
+  "blame_pr_title": "feat: add bulk order processing endpoint",
+  "blame_commit_sha": "d9e3f11",
+  "blame_commit_message": "feat: process orders in bulk without pagination — removes LIMIT clause for performance"
+}

@@ -13,6 +13,8 @@ on:
           - scenario-3-n-plus-one-timeout
           - scenario-4-xsuaa-auth
           - scenario-5-cap-deep-expand
+          - azure-monitor-http5xx
+          - azure-monitor-sql-pool
         default: scenario-2-500-schema-drift
       issue_number:
         description: 'GitHub Issue # to post diagnosis on (blank = create new)'

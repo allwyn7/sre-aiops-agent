@@ -1,0 +1,34 @@
+{
+  "incident_id": "INC-AZ-2024-002",
+  "scenario": "azure-monitor-sql-pool",
+  "title": "bookshop-api: Azure SQL connection pool exhaustion — P99 latency 14s",
+  "severity": "P2",
+  "service": "bookshop-api",
+  "environment": "production",
+  "timestamp": "2024-04-15T16:45:30Z",
+  "alert_source": "Azure Monitor (Microsoft.Sql/servers/databases)",
+  "metrics": {
+    "azure_sql_dtu_percent": 97.3,
+    "azure_sql_dtu_threshold": 80,
+    "azure_sql_connections_failed": 89,
+    "azure_sql_deadlocks_per_min": 14,
+    "avg_response_time_p99_ms": 14200,
+    "avg_response_time_p99_baseline_ms": 200,
+    "http_timeout_rate_percent": 34.6,
+    "error_rate_percent": 34.6
+  },
+  "labels": {
+    "azure_resource_id": "/subscriptions/a1b2c3d4/resourceGroups/sap-prod-rg/providers/Microsoft.Sql/servers/bookshop-sql/databases/bookshop-prod",
+    "azure_resource_group": "sap-prod-rg",
+    "azure_subscription": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+    "azure_alert_rule": "HighDTUConsumption",
+    "signal_type": "Metric",
+    "runtime": "java-17",
+    "db": "azure-sql",
+    "azure_sql_tier": "Standard S3"
+  },
+  "blame_pr_number": 63,
+  "blame_pr_title": "feat: add product recommendations using eager-loaded purchase history",
+  "blame_commit_sha": "b7a2e99",
+  "blame_commit_message": "feat: load full purchase history with all order items eagerly for ML recommendation model"
+}
