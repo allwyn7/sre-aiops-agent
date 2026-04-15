@@ -4,7 +4,8 @@ export class GitHubClient {
   constructor(owner, repo) {
     this.owner = owner;
     this.repo  = repo;
-    this.octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+    const baseUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
+    this.octokit = new Octokit({ auth: process.env.GITHUB_TOKEN, baseUrl });
   }
 
   // Fetch the N most recently merged PRs with their metadata
@@ -180,6 +181,105 @@ export class GitHubClient {
       message,
       content: Buffer.from(content).toString('base64'),
       ...(existing ? { sha: existing.sha } : {}),
+    });
+  }
+
+  // Get PR details including files, body, labels, and head branch
+  async getPRDetails(prNumber) {
+    const { data: pr } = await this.octokit.pulls.get({
+      owner:       this.owner,
+      repo:        this.repo,
+      pull_number: prNumber,
+    });
+
+    const { data: files } = await this.octokit.pulls.listFiles({
+      owner:       this.owner,
+      repo:        this.repo,
+      pull_number: prNumber,
+    });
+
+    const fileContents = [];
+    for (const file of files) {
+      if (file.status === 'removed') continue;
+      try {
+        const { data } = await this.octokit.repos.getContent({
+          owner: this.owner,
+          repo:  this.repo,
+          path:  file.filename,
+          ref:   pr.head.ref,
+        });
+        fileContents.push({
+          path:    file.filename,
+          content: Buffer.from(data.content, 'base64').toString('utf8'),
+          patch:   file.patch || '',
+        });
+      } catch { /* skip files that can't be read */ }
+    }
+
+    return {
+      number:     pr.number,
+      title:      pr.title,
+      body:       pr.body || '',
+      branch:     pr.head.ref,
+      labels:     pr.labels.map(l => l.name),
+      state:      pr.state,
+      fileContents,
+    };
+  }
+
+  // Fetch workflow run logs (last failed job's output)
+  async getWorkflowRunLogs(runId) {
+    try {
+      const { data: jobs } = await this.octokit.actions.listJobsForWorkflowRun({
+        owner:  this.owner,
+        repo:   this.repo,
+        run_id: runId,
+      });
+
+      const failedJob = jobs.jobs.find(j => j.conclusion === 'failure');
+      if (!failedJob) return '(No failed jobs found)';
+
+      // Get the log for the failed job
+      const { data: logData } = await this.octokit.actions.downloadJobLogsForWorkflowRun({
+        owner:  this.owner,
+        repo:   this.repo,
+        job_id: failedJob.id,
+      });
+
+      const logStr = String(logData);
+      // Truncate to keep prompt size manageable
+      return logStr.length > 6000 ? logStr.slice(-6000) : logStr;
+    } catch (err) {
+      console.warn(`   Warning: could not fetch workflow logs (${err.message})`);
+      return `(Workflow logs unavailable: ${err.message})`;
+    }
+  }
+
+  // Close a PR with a comment
+  async closePR(prNumber, comment) {
+    if (comment) {
+      await this.octokit.issues.createComment({
+        owner:        this.owner,
+        repo:         this.repo,
+        issue_number: prNumber,
+        body:         comment,
+      });
+    }
+    await this.octokit.pulls.update({
+      owner:        this.owner,
+      repo:         this.repo,
+      pull_number:  prNumber,
+      state:        'closed',
+    });
+  }
+
+  // Add labels to a PR/issue
+  async addLabels(issueNumber, labels) {
+    await this.octokit.issues.addLabels({
+      owner:        this.owner,
+      repo:         this.repo,
+      issue_number: issueNumber,
+      labels,
     });
   }
 }

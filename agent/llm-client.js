@@ -110,4 +110,46 @@ export class LLMClient {
 
     return this._parseJSON(message.content[0].text);
   }
+
+  async generateSREArtifacts({ alert, logs, diagnosisJson, remediationJson }) {
+    const prompt = this._renderTemplate('sre-artifacts.txt', {
+      ALERT_JSON:       JSON.stringify(alert, null, 2),
+      LOGS:             logs,
+      DIAGNOSIS_JSON:   JSON.stringify(diagnosisJson, null, 2),
+      REMEDIATION_JSON: JSON.stringify(remediationJson, null, 2),
+    });
+
+    const message = await this._callWithRetry(() =>
+      this.client.messages.create({
+        model:      this.model,
+        max_tokens: 8192,
+        messages:   [{ role: 'user', content: prompt }],
+      })
+    );
+
+    return this._parseJSON(message.content[0].text);
+  }
+
+  async repair({ originalDiagnosis, originalFiles, ciLogs, currentFlywayVersion }) {
+    const filesFormatted = originalFiles
+      .map(f => `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
+      .join('\n\n');
+
+    const prompt = this._renderTemplate('repair.txt', {
+      ORIGINAL_DIAGNOSIS:   JSON.stringify(originalDiagnosis, null, 2),
+      ORIGINAL_FILES:       filesFormatted,
+      CI_LOGS:              ciLogs,
+      CURRENT_FLYWAY_VERSION: currentFlywayVersion,
+    });
+
+    const message = await this._callWithRetry(() =>
+      this.client.messages.create({
+        model:      this.model,
+        max_tokens: 4096,
+        messages:   [{ role: 'user', content: prompt }],
+      })
+    );
+
+    return this._parseJSON(message.content[0].text);
+  }
 }

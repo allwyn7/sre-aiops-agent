@@ -1,0 +1,126 @@
+You are an expert SRE engineer specializing in Spring Boot microservices deployed on SAP BTP (Business Technology Platform), using PostgreSQL, Spring Data JPA, Flyway, HikariCP, and XSUAA for authentication.
+
+Based on the incident diagnosis and alert data below, generate comprehensive SRE artifacts: an operational runbook, Prometheus/Alertmanager alerting rules, capacity planning recommendations, disaster recovery assessment, and performance tuning guidance.
+
+## Incident Alert
+```json
+{{ALERT_JSON}}
+```
+
+## Application Logs (around incident time)
+```
+{{LOGS}}
+```
+
+## Diagnosis
+```json
+{{DIAGNOSIS_JSON}}
+```
+
+## Remediation
+```json
+{{REMEDIATION_JSON}}
+```
+
+## Instructions
+
+Generate ALL of the following artifacts in a single JSON response. Be specific and actionable — use real metric names, thresholds, and configuration values from the incident data above.
+
+### 1. Runbook
+A complete operational runbook for this class of incident:
+- **title**: Short title for this runbook (e.g., "JPA Entity Schema Drift Recovery")
+- **incident_pattern**: The error pattern or symptom that triggers this runbook (regex or log message)
+- **detection**: How to spot this issue — specific log patterns, metric thresholds, health check failures
+- **triage**: Initial assessment steps — what to check first, how to gauge severity, who to notify
+- **diagnosis**: Detailed diagnostic commands and steps — kubectl commands, SQL queries, log searches, config checks
+- **resolution**: Step-by-step fix procedure with exact commands
+- **verification**: How to confirm the fix worked — health checks, metric baselines to watch, test requests
+- **prevention**: How to avoid recurrence — CI gates, code review checks, monitoring additions
+
+### 2. Alerting Rules
+Generate Prometheus alerting rules in valid YAML format (as a string). Use the actual metric names and values from the alert data:
+- For each metric where baseline and spike are available, set the alert threshold at 3-5x the baseline (well below the incident spike value) so alerts fire early
+- Include `for` duration (typically 2-5 minutes to avoid flapping)
+- Include `labels` with severity (critical/warning)
+- Include `annotations` with summary, description, and runbook_url placeholder
+- Add a second "warning" tier alert at 2x baseline where appropriate
+- Generate an Alertmanager route snippet for severity-based routing
+
+### 3. Capacity Planning
+Analyze the incident metrics to recommend:
+- **current_utilization**: Summary of resource usage at time of incident vs. baseline
+- **scaling_thresholds**: Specific metric values that should trigger horizontal/vertical scaling
+- **resource_recommendations**: Concrete JVM heap, CPU limits, HikariCP pool sizes, replica counts
+- **growth_projections**: Impact analysis at 2x, 5x, 10x current load
+- **cost_considerations**: Trade-offs between over-provisioning and incident risk
+
+### 4. Disaster Recovery Assessment
+Based on single points of failure exposed by this incident:
+- **spof_identified**: List of specific single points of failure this incident exposed
+- **ha_recommendations**: High availability strategies — replicas, failover, circuit breakers, bulkheads
+- **failover_strategy**: Concrete failover procedures for this service
+- **rto_rpo_assessment**: Recovery Time Objective and Recovery Point Objective analysis
+- **backup_recommendations**: Data backup strategy and restore procedures
+
+### 5. Performance Tuning
+Spring Boot / JPA / PostgreSQL / HikariCP tuning recommendations specific to this incident type:
+- **jvm_tuning**: JVM flags, heap sizing, GC algorithm selection with specific values
+- **spring_boot_tuning**: application.yml changes with before/after values
+- **jpa_hibernate_tuning**: Hibernate properties, fetch strategies, batch sizes
+- **database_tuning**: PostgreSQL configuration (shared_buffers, work_mem, etc.) and query optimization
+- **connection_pool_tuning**: HikariCP settings (pool size, timeout, leak detection)
+
+### 6. Incident Response Metadata
+- **severity_score**: Numeric 1-10 with justification
+- **severity_matrix**: { "impact": "description of user/revenue/data impact", "urgency": "spreading/stable/contained" }
+- **mttr_estimate_minutes**: Estimated mean time to resolve
+- **mttr_justification**: Why this estimate (complexity, blast radius, fix type)
+- **escalation_path**: Ordered array of roles/teams to escalate to (e.g., ["On-call SRE", "Service Owner", "Database Team", "Platform Team Lead"])
+- **communication_template**: Pre-written Slack/email notification for stakeholders (include incident ID, severity, impact, ETA, and status update placeholders)
+
+## Output
+
+Return ONLY a valid JSON object, no markdown fences:
+
+{
+  "runbook": {
+    "title": "...",
+    "incident_pattern": "...",
+    "detection": "...",
+    "triage": "...",
+    "diagnosis": "...",
+    "resolution": "...",
+    "verification": "...",
+    "prevention": "..."
+  },
+  "alerting_rules_yaml": "groups:\n  - name: ...\n    rules:\n      - alert: ...\n        expr: ...\n        for: 5m\n        labels:\n          severity: critical\n        annotations:\n          summary: ...\n          description: ...\n          runbook_url: ...",
+  "capacity_planning": {
+    "current_utilization": "...",
+    "scaling_thresholds": "...",
+    "resource_recommendations": "...",
+    "growth_projections": "...",
+    "cost_considerations": "..."
+  },
+  "disaster_recovery": {
+    "spof_identified": ["..."],
+    "ha_recommendations": "...",
+    "failover_strategy": "...",
+    "rto_rpo_assessment": "...",
+    "backup_recommendations": "..."
+  },
+  "performance_tuning": {
+    "jvm_tuning": "...",
+    "spring_boot_tuning": "...",
+    "jpa_hibernate_tuning": "...",
+    "database_tuning": "...",
+    "connection_pool_tuning": "..."
+  },
+  "incident_response_metadata": {
+    "severity_score": 9,
+    "severity_matrix": { "impact": "...", "urgency": "..." },
+    "mttr_estimate_minutes": 30,
+    "mttr_justification": "...",
+    "escalation_path": ["On-call SRE", "Service Owner", "Platform Team Lead"],
+    "communication_template": "..."
+  }
+}

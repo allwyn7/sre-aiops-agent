@@ -6,6 +6,7 @@ import { LLMClient } from './llm-client.js';
 import { createDiagnosisIssue } from './output/create-issue.js';
 import { createFixPR } from './output/create-pr.js';
 import { appendToKnowledgeBase } from './output/knowledge-base.js';
+import { commitSREArtifacts } from './output/commit-sre-artifacts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,13 +78,38 @@ async function run() {
   });
   console.log(`   Fix PR branch: ${remediationRaw.branch_name}`);
 
-  // 5. Post diagnosis issue ──────────────────────────────────────────────────
+  // 4b. Generate SRE artifacts with LLM ──────────────────────────────────────
+  let sreArtifacts = null;
+  try {
+    console.log('📋 Calling LLM for SRE artifacts (runbook, alerting rules, capacity planning, DR, performance tuning)...');
+    sreArtifacts = await llm.generateSREArtifacts({
+      alert,
+      logs,
+      diagnosisJson:    diagnosisRaw,
+      remediationJson:  remediationRaw,
+    });
+    console.log(`   Severity: ${sreArtifacts.incident_response_metadata?.severity_score}/10`);
+    console.log(`   MTTR estimate: ${sreArtifacts.incident_response_metadata?.mttr_estimate_minutes} min`);
+  } catch (err) {
+    console.warn(`   Warning: SRE artifact generation failed: ${err.message}. Continuing without artifacts.`);
+  }
+
+  // 5. Post diagnosis issue (enhanced with SRE metadata) ─────────────────────
+  const idLower = alert.incident_id.toLowerCase().replace(/_/g, '-');
+  const artifactPaths = {
+    runbookPath:          `knowledge-base/runbooks/${idLower}.md`,
+    alertingRulesPath:    `knowledge-base/alerting-rules/${idLower}.yml`,
+    recommendationsPath:  `knowledge-base/recommendations/${idLower}.md`,
+  };
+
   console.log('📝 Creating post-incident GitHub Issue...');
   const issueUrl = await createDiagnosisIssue(github, {
     alert,
-    diagnosis: diagnosisRaw,
-    remediation: remediationRaw,
+    diagnosis:         diagnosisRaw,
+    remediation:       remediationRaw,
     targetIssueNumber: TARGET_ISSUE_NUMBER ? parseInt(TARGET_ISSUE_NUMBER) : null,
+    sreArtifacts,
+    artifactPaths:     sreArtifacts ? artifactPaths : null,
   });
   console.log(`   Issue: ${issueUrl}`);
 
@@ -99,11 +125,30 @@ async function run() {
   console.log('📚 Updating knowledge base...');
   await appendToKnowledgeBase(github, { alert, diagnosis: diagnosisRaw, prUrl, issueUrl });
 
+  // 7b. Commit SRE artifacts to knowledge base ───────────────────────────────
+  if (sreArtifacts) {
+    console.log('📋 Committing SRE artifacts to knowledge base...');
+    const artifactResult = await commitSREArtifacts(github, {
+      alert,
+      sreArtifacts,
+      issueUrl,
+      prUrl,
+    });
+    console.log(`   Runbook: ${artifactResult.runbookPath}`);
+    console.log(`   Alerting rules: ${artifactResult.alertingRulesPath}`);
+    console.log(`   Recommendations: ${artifactResult.recommendationsPath}`);
+  }
+
   // 8. Emit GitHub Actions outputs ───────────────────────────────────────────
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
     fs.appendFileSync(outputFile, `diagnosis_issue_url=${issueUrl}\n`);
     fs.appendFileSync(outputFile, `fix_pr_url=${prUrl}\n`);
+    if (sreArtifacts) {
+      fs.appendFileSync(outputFile, `runbook_path=${artifactPaths.runbookPath}\n`);
+      fs.appendFileSync(outputFile, `alerting_rules_path=${artifactPaths.alertingRulesPath}\n`);
+      fs.appendFileSync(outputFile, `recommendations_path=${artifactPaths.recommendationsPath}\n`);
+    }
   }
 
   console.log('\n✅ Agent completed successfully.\n');

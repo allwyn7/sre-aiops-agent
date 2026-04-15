@@ -1,6 +1,6 @@
 # SRE AIOps Agent — SAP Hackathon
 
-An AI-powered incident response agent that automatically diagnoses production incidents, correlates them to recent code changes, suggests remediation PRs, and files post-incident summaries — all within GitHub.
+An AI-powered incident response agent that automatically diagnoses production incidents, correlates them to recent code changes, generates remediation PRs, produces operational runbooks, creates alerting rules, and delivers capacity planning, disaster recovery, and performance tuning recommendations — all within GitHub.
 
 > **"You build it, you run it"** — This agent bridges the gap between operational signals (error logs, metrics spikes, deployment events) and development artifacts (code changes, PRs, configuration diffs).
 
@@ -29,9 +29,10 @@ An AI-powered incident response agent that automatically diagnoses production in
 2. **Learn** — Fetch past resolved incidents from `knowledge-base/incidents.md` to identify recurring patterns
 3. **Diagnose** — Claude analyzes logs, correlates with PR diffs, references past incidents, outputs root cause JSON
 4. **Remediate** — Claude generates fix files (SQL migration, Java patch, config fix, or code change)
-5. **Report** — Creates a post-incident GitHub Issue with Mermaid timeline, correlation evidence, and action items
-6. **Fix** — Opens a PR with the generated fix files; CI validates automatically
-7. **Learn** — Appends a runbook entry to the knowledge base, building institutional memory
+5. **SRE Artifacts** — Claude generates runbook, Prometheus alerting rules, capacity/DR/performance recommendations, and incident severity metadata in a single call
+6. **Report** — Creates an enhanced post-incident GitHub Issue with Mermaid timeline, severity assessment, MTTR estimate, escalation path, communication template, and links to all generated artifacts
+7. **Fix** — Opens a PR with the generated fix files; CI validates automatically
+8. **Learn** — Appends a runbook entry to the knowledge base, commits runbook/alerting-rules/recommendations to `knowledge-base/`
 
 ---
 
@@ -49,6 +50,19 @@ Each scenario includes realistic SAP BTP-style alert payloads and application lo
 ---
 
 ## Key Features
+
+### 6 SRE Capabilities Per Incident
+
+Every incident run generates a comprehensive set of SRE artifacts:
+
+| Capability | Output | Location |
+|------------|--------|----------|
+| **Incident Response Analysis** | Severity scoring, MTTR estimate, escalation path, communication template | GitHub Issue (enhanced) |
+| **Runbook Generation** | Full operational runbook (detection, triage, diagnosis, resolution, verification, prevention) | `knowledge-base/runbooks/` |
+| **Alerting Rules Creation** | Prometheus/Alertmanager YAML with thresholds derived from incident metrics | `knowledge-base/alerting-rules/` |
+| **Capacity Planning** | Scaling thresholds, resource recommendations, growth projections | `knowledge-base/recommendations/` |
+| **Disaster Recovery Planning** | SPOF analysis, HA recommendations, failover strategy, RTO/RPO assessment | `knowledge-base/recommendations/` |
+| **Performance Tuning** | JVM, Spring Boot, JPA/Hibernate, PostgreSQL, HikariCP tuning | `knowledge-base/recommendations/` |
 
 ### Knowledge Base Learning Loop
 The agent doesn't just fix incidents — it **learns from them**. Each resolved incident is appended to `knowledge-base/incidents.md` with its error pattern, root cause, and resolution. On subsequent incidents, the agent reads past entries and uses them to:
@@ -72,6 +86,20 @@ Issues include a metrics table showing every signal from the alert (error rates,
 - **Graceful degradation** when blame PR diff is unavailable (uses alert metadata instead)
 - **Failure summaries** written to GitHub Actions step summary on error
 
+### Self-Healing CI Repair Loop
+If a generated fix PR fails CI, the agent **automatically repairs it**:
+
+```
+Fix PR created → CI fails → Repair Agent triggers
+  → Reads CI error logs + original PR files
+  → LLM generates corrected fix
+  → New repair PR created (labeled aiops-repair)
+  → Original PR closed with link to repair
+  → CI runs on repair PR → human reviews & merges
+```
+
+**Loop protection:** Repair PRs are labeled `aiops-repair` — if a repair also fails CI, the agent stops and posts a comment asking for human help instead of looping infinitely.
+
 ---
 
 ## Repo Structure
@@ -80,18 +108,23 @@ Issues include a metrics table showing every signal from the alert (error rates,
 .github/workflows/
   incident-response.yml   # workflow_dispatch trigger — runs the agent
   ci.yml                  # validates agent-generated fix PRs
+  repair-fix.yml          # auto-repairs failed fix PRs (self-healing loop)
 
 agent/
-  index.js                # orchestrator (7-step pipeline)
+  index.js                # orchestrator (8-step pipeline)
+  repair.js               # self-healing repair agent (triggered on CI failure)
   github-client.js        # GitHub REST API wrapper (Octokit)
   llm-client.js           # Claude API wrapper with retry logic
   prompts/
     diagnose.txt          # SAP BTP-aware diagnosis prompt (with KB context)
     remediate.txt         # fix file generation prompt (4 remediation types)
+    sre-artifacts.txt     # generates runbook, alerting rules, capacity/DR/perf recommendations
+    repair.txt            # self-healing prompt: analyzes CI failure, generates corrected fix
   output/
-    create-issue.js       # post-incident Issue with Mermaid timeline
+    create-issue.js       # enhanced post-incident Issue with severity, MTTR, escalation, artifacts
     create-pr.js          # fix PR creator
     knowledge-base.js     # appends runbook entries to incidents.md
+    commit-sre-artifacts.js  # commits runbook, alerting rules, recommendations to KB
   package.json
 
 app/                      # Spring Boot bookshop microservice (demo target)
@@ -117,6 +150,9 @@ incidents/
 
 knowledge-base/
   incidents.md            # auto-populated runbook (seeded with 3 historical incidents)
+  runbooks/               # auto-generated operational runbooks per incident
+  alerting-rules/         # auto-generated Prometheus/Alertmanager rules per incident
+  recommendations/        # auto-generated capacity, DR, and performance recommendations
 
 docker-compose.yml        # PostgreSQL + bookshop-srv for local dev
 ```
@@ -138,15 +174,23 @@ docker-compose.yml        # PostgreSQL + bookshop-srv for local dev
 
 ### What Happens
 
-In under 2 minutes:
+In under 3 minutes:
 - A **post-incident GitHub Issue** appears with:
   - Mermaid incident timeline
   - Root cause analysis with blame PR
   - Correlation evidence table
-  - Action item checklist
+  - Severity assessment (1-10 score, impact/urgency matrix)
+  - MTTR estimate with justification
+  - Escalation path
+  - Stakeholder communication template (collapsible)
+  - Links to all generated SRE artifacts
   - Knowledge base cross-reference (if pattern matches a past incident)
 - A **fix PR** opens with the generated fix files
 - CI validates the fix (Maven build + Flyway sequence check)
+- **SRE artifacts** are committed to `knowledge-base/`:
+  - `runbooks/{incident-id}.md` — full operational runbook
+  - `alerting-rules/{incident-id}.yml` — Prometheus alerting rules
+  - `recommendations/{incident-id}.md` — capacity planning, DR assessment, performance tuning
 - `knowledge-base/incidents.md` is updated with a new runbook entry
 
 ### Local Development
@@ -167,14 +211,19 @@ cd app && mvn spring-boot:run
 ### Act 2: The Agent Responds
 > Trigger `scenario-2-500-schema-drift` from the Actions tab. The agent reads the alert, fetches the blame PR diff, checks the knowledge base, and calls Claude for diagnosis.
 
-### Act 3: The Output
-> Show the GitHub Issue with the Mermaid timeline. Show the fix PR with the generated Flyway migration. Show the CI check passing.
+### Act 3: The Output — 6 Artifacts from 1 Incident
+> 1. **GitHub Issue** — Show the Mermaid timeline, severity assessment (score, impact, urgency), MTTR estimate, escalation path, and collapsible communication template.
+> 2. **Fix PR** — Show the generated Flyway migration and CI passing.
+> 3. **Runbook** — Open `knowledge-base/runbooks/inc-2024-002.md` — a full 6-section operational runbook (detect, triage, diagnose, resolve, verify, prevent).
+> 4. **Alerting Rules** — Open `knowledge-base/alerting-rules/inc-2024-002.yml` — Prometheus rules with thresholds derived from the incident metrics.
+> 5. **Recommendations** — Open `knowledge-base/recommendations/inc-2024-002.md` — capacity planning, disaster recovery assessment, and performance tuning guidance.
+> 6. **Knowledge Base** — The incident is logged in `incidents.md` for future learning.
 
 ### Act 4: The Learning Loop
 > Now trigger `scenario-4-xsuaa-auth`. Point out the knowledge base already has an XSUAA incident (INC-2024-009). The agent references this past incident in its diagnosis — it's getting smarter.
 
 ### Act 5: The Flywheel
-> Open `knowledge-base/incidents.md` — it now has entries from both runs. Every incident makes the next diagnosis faster. The repository becomes the system of record.
+> Open `knowledge-base/` — it now has runbooks, alerting rules, and recommendations from both runs. Every incident makes the next diagnosis faster, the alerting better, and the team more prepared. The repository becomes the system of record.
 
 ---
 
