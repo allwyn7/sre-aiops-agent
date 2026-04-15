@@ -211,3 +211,21 @@ Update network policies to ensure DNS egress traffic (UDP:53) is permitted for t
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/31
 
 ---
+## INC-2024-007 — 2024-04-28
+
+**Title:** bookshop-srv: HTTPS handshake failures — TLS certificate expired on ingress
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`acme: authorization failed: fetching http://<domain>/.well-known/acme-challenge/<token> returned status 404`
+
+### Root Cause
+Cert-manager's HTTP-01 solver for Let's Encrypt ACME challenges was not correctly routed through the ingress. As a result, the ACME server could not verify the challenge URL during renewal, leading to repeated failure and eventual certificate expiry.
+
+### Resolution
+Correct the ingress configuration for the HTTP-01 solver route. Ensure the ingressClass matches the nginx ingress controller, and the /.well-known/acme-challenge/ path is reachable from the ACME server. Then manually delete and recreate the failed Certificate resource to trigger renewal.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/32
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/33
+
+---
