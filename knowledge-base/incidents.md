@@ -207,3 +207,21 @@ Added a Flyway migration script (`V2__Restore_price_old_column.sql`) to restore 
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/15
 
 ---
+## INC-2024-002 — 2024-04-10
+
+**Title:** bookshop-srv: HTTP 500 spike – Hibernate SQLGrammarException on Books endpoint
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`org.postgresql.util.PSQLException: ERROR: column does not exist`
+
+### Root Cause
+PR #52 removed the 'price_old' field from the 'Book' JPA entity but did not include a matching Flyway migration to drop the 'price_old' column in PostgreSQL. Hibernate continues to generate SELECT statements referencing the removed column, leading to SQLGrammarException when the column does not exist in the schema.
+
+### Resolution
+Add a Flyway SQL migration file to drop the column from PostgreSQL so it matches the current state of the JPA entity. Validate successful deployment in a lower environment to ensure the schema and ORM are both in sync before deploying to production.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/18
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/19
+
+---
