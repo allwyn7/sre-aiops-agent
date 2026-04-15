@@ -18,9 +18,24 @@ When a production incident fires, this agent:
 
 - **LLM**: GitHub Models API (`models.inference.ai.azure.com`) — gpt-4o, same infrastructure as GitHub Copilot
 - **GitHub API**: Octokit REST — creates branches, commits, PRs, Issues
-- **MCP**: Official `github/github-mcp-server` binary — 26 tools, configured against `github.tools.sap`
+- **MCP**: Official `@modelcontextprotocol/server-github` — configured in `.vscode/mcp.json`, enables Copilot Chat to interact with GitHub Issues, PRs, and repository contents
 - **Runner**: GitHub Actions (`incident-response.yml`) or local Node.js (`node agent/index.js`)
 - **Trigger**: `workflow_dispatch` (manual), `repository_dispatch` (webhook from Azure Monitor or SAP Alert Notification)
+- **Copilot Chat Prompts**: `.github/prompts/` — 7 agent-mode prompts for interactive SRE workflows
+
+## Copilot Chat SRE Prompts
+
+These prompts are available in VS Code Copilot Chat agent mode (type `@workspace /prompt-name`):
+
+| Prompt | Purpose |
+|--------|---------|
+| `/sre-diagnose` | Interactive incident diagnosis — reads alerts, logs, blame PRs, knowledge base |
+| `/sre-status` | Live incident dashboard — open incidents, fix PRs, resolution status |
+| `/sre-remediate` | Trigger the full agent pipeline and monitor the remediation lifecycle |
+| `/investigate-incident` | Walk through a specific incident's diagnosis, fix PR, runbook |
+| `/list-incidents` | Table of all incidents with their fix PR status |
+| `/review-fix-pr` | SRE code review of a fix PR with merge/hold/reject recommendation |
+| `/trigger-agent` | Trigger and monitor an agent run via GitHub Actions |
 
 ## Key files
 
@@ -45,6 +60,9 @@ When a production incident fires, this agent:
 | `scenario-3-n-plus-one-timeout` | Spring Boot | P2 | LAZY→EAGER fetch, 1,205 SQL/request | `code_fix` |
 | `scenario-4-xsuaa-auth` | BTP / CF | P1 | xsappname changed, bindings not re-created | `config_fix` |
 | `scenario-5-cap-deep-expand` | SAP CAP | P2 | `deep_reads: true`, 340 HANA queries/request | `feature_flag` |
+| `scenario-6-k8s-pod-crashloop` | Kubernetes | P1 | Pod OOMKilled, HPA maxed out, traffic spike | `infrastructure_action` |
+| `scenario-7-tls-cert-expiry` | Kubernetes | P1 | cert-manager renewal failed, TLS cert expired | `infrastructure_action` |
+| `scenario-8-dns-network-policy` | Kubernetes | P2 | Network policy blocks DNS after K8s 1.29 upgrade | `escalation` |
 
 ## Remediation types
 
@@ -54,6 +72,17 @@ When a production incident fires, this agent:
 - `feature_flag` — toggle a feature off without a deployment
 - `pr_rollback` — revert the blame PR (used for P0/P1 or low-confidence diagnosis)
 - `dependency_update` — update a broken/vulnerable dependency
+- `infrastructure_action` — IaC config change (K8s manifests, Helm values, network policies, cert-manager resources) + GitHub Actions workflow dispatch for execution
+- `escalation` — requires human intervention; creates detailed escalation issue with investigation steps
+
+## Infrastructure incident handling
+
+For infrastructure incidents (scenarios 6-8), the agent:
+1. Detects the incident has no `blame_pr_number` → skips PR context fetching
+2. Diagnoses using infrastructure signals (K8s events, network traces, cert status)
+3. For `infrastructure_action`: creates an IaC PR with K8s/Helm config files AND dispatches a GitHub Actions remediation workflow
+4. For `escalation`: creates a detailed escalation issue with investigation steps, no PR
+5. The remediation workflow (`infra-remediation.yml`) executes the infrastructure action and comments back on the incident issue
 
 ## Confidence gate
 

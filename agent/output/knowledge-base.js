@@ -22,7 +22,7 @@ export async function appendToKnowledgeBase(github, { alert, diagnosis, prUrl, i
     rb.resolution,
     '',
     `**Post-Incident Issue:** ${issueUrl}`,
-    `**Fix PR:** ${prUrl}`,
+    `**Fix PR:** ${prUrl || '_N/A — escalation-only incident_'}`,
     '',
     '---',
     '',

@@ -1,0 +1,37 @@
+{
+  "incident_id": "INC-2024-007",
+  "scenario": "scenario-7-tls-cert-expiry",
+  "incident_category": "infrastructure",
+  "title": "bookshop-srv: HTTPS handshake failures — TLS certificate expired on ingress",
+  "severity": "P1",
+  "service": "bookshop-srv",
+  "environment": "production",
+  "timestamp": "2024-04-28T03:15:42Z",
+  "alert_source": "Cert-Manager / Prometheus",
+  "metrics": {
+    "tls_cert_expiry_days": -1,
+    "https_handshake_failure_rate_per_min": 312,
+    "https_handshake_failure_baseline_per_min": 0,
+    "http_4xx_rate_per_min": 289,
+    "http_4xx_baseline_per_min": 2.1,
+    "http_2xx_rate_per_min": 0,
+    "http_2xx_baseline_per_min": 340,
+    "error_rate_percent": 100.0,
+    "affected_endpoints": [
+      "ALL HTTPS endpoints — TLS termination failing at ingress"
+    ]
+  },
+  "labels": {
+    "cluster": "prod-eu-west-1",
+    "namespace": "bookshop-prod",
+    "ingress_class": "nginx",
+    "cert_issuer": "letsencrypt-prod",
+    "cert_common_name": "bookshop.example.com",
+    "cert_secret_name": "bookshop-tls",
+    "k8s_version": "1.29.2"
+  },
+  "blame_pr_number": null,
+  "blame_pr_title": null,
+  "blame_commit_sha": null,
+  "blame_commit_message": null
+}

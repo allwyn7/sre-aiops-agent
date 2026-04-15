@@ -1,4 +1,4 @@
-export async function createDiagnosisIssue(github, { alert, diagnosis, remediation, targetIssueNumber, sreArtifacts, artifactPaths, recentPRs, confidenceOverrideNote }) {
+export async function createDiagnosisIssue(github, { alert, diagnosis, remediation, targetIssueNumber, sreArtifacts, artifactPaths, recentPRs, confidenceOverrideNote, isInfraIncident }) {
   const { diagnosis: d } = diagnosis;
 
   // Build Mermaid incident timeline
@@ -31,30 +31,58 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
 
   const repoUrl = `https://github.com/${process.env.GITHUB_REPO}`;
 
+  // Build Mermaid timeline — different for application vs infrastructure incidents
+  let mermaidTimeline;
+  if (isInfraIncident) {
+    const infraCategory = d.infra_context?.category || 'infrastructure';
+    mermaidTimeline = [
+      '```mermaid',
+      'timeline',
+      `    title ${alert.incident_id} Incident Timeline`,
+      `    section Trigger`,
+      `        ${fmt(deployTime)} : Infrastructure event detected`,
+      `                           : Category - ${infraCategory}`,
+      `    section Detection`,
+      `        ${fmt(incidentTime)} : Metrics anomaly detected`,
+      `                             : ${alert.metrics.error_rate_percent || ''}% error rate`,
+      `        ${fmt(detectTime)} : Alert fired - ${alert.severity}`,
+      `    section Response`,
+      `        ${fmt(diagTime)} : AIOps Agent diagnosed root cause`,
+      `                        : Confidence - ${d.confidence}`,
+      `        ${fmt(fixTime)} : Remediation ${remediation?.branch_name ? 'PR + workflow dispatched' : 'escalated'}`,
+      '```',
+    ];
+  } else {
+    mermaidTimeline = [
+      '```mermaid',
+      'timeline',
+      `    title ${alert.incident_id} Incident Timeline`,
+      `    section Trigger`,
+      `        ${fmt(deployTime)} : PR #${d.blame_pr_number} deployed to production`,
+      `    section Detection`,
+      `        ${fmt(incidentTime)} : Metrics spike detected`,
+      `                             : ${alert.metrics.error_rate_percent || alert.metrics.http_401_rate_per_min || ''}% error rate`,
+      `        ${fmt(detectTime)} : Alert fired - ${alert.severity}`,
+      `    section Response`,
+      `        ${fmt(diagTime)} : AIOps Agent diagnosed root cause`,
+      `                        : Confidence - ${d.confidence}`,
+      `        ${fmt(fixTime)} : Fix PR created`,
+      '```',
+    ];
+  }
+
   const body = [
     `## Post-Incident Report — ${alert.incident_id}`,
     '',
     `> **Severity:** ${alert.severity} | **Service:** \`${alert.service}\` | **Time:** ${alert.timestamp}`,
+    ...(isInfraIncident ? [`> **Category:** Infrastructure (${d.infra_context?.category || 'general'})`] : []),
     similarPastNote,
     confidenceWarning,
     '---',
     '',
     '### Incident Timeline',
     '',
-    '```mermaid',
-    'timeline',
-    `    title ${alert.incident_id} Incident Timeline`,
-    `    section Trigger`,
-    `        ${fmt(deployTime)} : PR #${d.blame_pr_number} deployed to production`,
-    `    section Detection`,
-    `        ${fmt(incidentTime)} : Metrics spike detected`,
-    `                             : ${alert.metrics.error_rate_percent || alert.metrics.http_401_rate_per_min || ''}% error rate`,
-    `        ${fmt(detectTime)} : Alert fired - ${alert.severity}`,
-    `    section Response`,
-    `        ${fmt(diagTime)} : AIOps Agent diagnosed root cause`,
-    `                        : Confidence - ${d.confidence}`,
-    `        ${fmt(fixTime)} : Fix PR created`,
-    '```',
+    ...mermaidTimeline,
     '',
     '---',
     '',
@@ -66,7 +94,20 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     '### Root Cause',
     d.root_cause,
     '',
-    `**Blame:** PR #${d.blame_pr_number} — ${d.blame_pr_reasoning}`,
+  ];
+
+  // Blame / Category section
+  if (d.blame_pr_number) {
+    body.push(
+      `**Blame:** PR #${d.blame_pr_number} — ${d.blame_pr_reasoning}`,
+    );
+  } else {
+    body.push(
+      `**Category:** Infrastructure incident — ${d.blame_pr_reasoning || 'No code change identified as root cause'}`,
+    );
+  }
+
+  body.push(
     '',
     `**Confidence:** ${d.confidence}`,
     '',
@@ -78,12 +119,19 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     '### Remediation',
     diagnosis.remediation_description,
     '',
-    `**Fix PR:** ${remediation?.branch_name ? `Branch \`${remediation.branch_name}\` — see linked PR` : '_pending_'}`,
+    `**Fix PR:** ${remediation?.branch_name ? `Branch \`${remediation.branch_name}\` — see linked PR` : '_No PR — escalation-only incident_'}`,
     '',
     '### Follow-Up',
     '- [ ] Confirm fix deployed to production',
     '- [ ] Verify error rate returns to baseline',
-    '- [ ] Add integration test to prevent regression',
+    ...(isInfraIncident
+      ? [
+          '- [ ] Verify infrastructure state (resources, certs, network policies)',
+          '- [ ] Review remediation workflow output',
+        ]
+      : [
+          '- [ ] Add integration test to prevent regression',
+        ]),
     '- [ ] Update runbook with this incident pattern',
     '',
     '---',
@@ -103,11 +151,42 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     '_What the agent analyzed to reach this diagnosis:_',
     '',
     `- **Alert payload:** \`incidents/${process.env.INCIDENT_SCENARIO}/alert.json\` — service \`${alert.service}\`, severity \`${alert.severity}\``,
-    `- **Application logs:** \`incidents/${process.env.INCIDENT_SCENARIO}/logs.txt\` — analyzed for stack traces and error patterns`,
-    `- **Blame PR:** #${d.blame_pr_number} — ${d.blame_pr_reasoning}`,
-    `- **Diagnosis confidence:** \`${d.confidence}\` — ${d.confidence === 'high' ? 'strong signal, blame PR diff matches error pattern' : d.confidence === 'medium' ? 'moderate signal, blame PR is likely but not certain' : 'weak signal — logs inconclusive or blame PR diff does not clearly match'}`,
-    '',
-    ...(prSummaryLines.length ? [
+    `- **Application logs:** \`incidents/${process.env.INCIDENT_SCENARIO}/logs.txt\` — analyzed for ${isInfraIncident ? 'infrastructure events and error patterns' : 'stack traces and error patterns'}`,
+  );
+
+  if (d.blame_pr_number) {
+    body.push(
+      `- **Blame PR:** #${d.blame_pr_number} — ${d.blame_pr_reasoning}`,
+      `- **Diagnosis confidence:** \`${d.confidence}\` — ${d.confidence === 'high' ? 'strong signal, blame PR diff matches error pattern' : d.confidence === 'medium' ? 'moderate signal, blame PR is likely but not certain' : 'weak signal — logs inconclusive or blame PR diff does not clearly match'}`,
+    );
+  } else {
+    body.push(
+      `- **Incident type:** Infrastructure — no blame PR identified`,
+      `- **Diagnosis confidence:** \`${d.confidence}\` — ${d.confidence === 'high' ? 'strong infrastructure signal, root cause clearly identified in logs' : d.confidence === 'medium' ? 'moderate signal, likely root cause identified but needs verification' : 'weak signal — infrastructure root cause uncertain, escalation recommended'}`,
+    );
+  }
+
+  // Infrastructure context section
+  if (d.infra_context) {
+    body.push(
+      '',
+      '### Infrastructure Context',
+      '',
+      `**Category:** ${d.infra_context.category}`,
+      `**Affected Resources:** ${(d.infra_context.affected_resources || []).join(', ') || 'N/A'}`,
+    );
+    if (d.infra_context.investigation_commands?.length) {
+      body.push(
+        '',
+        '**Investigation Commands:**',
+        ...d.infra_context.investigation_commands.map(cmd => `\`\`\`\n${cmd}\n\`\`\``),
+      );
+    }
+  }
+
+  if (prSummaryLines.length) {
+    body.push(
+      '',
       '<details>',
       '<summary>Recent PRs reviewed by agent (last 5)</summary>',
       '',
@@ -116,8 +195,8 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
       ...prSummaryLines,
       '',
       '</details>',
-    ] : []),
-  ];
+    );
+  }
 
   // ── Enhanced sections from SRE artifacts ──────────────────────────────────
   if (sreArtifacts?.incident_response_metadata) {
@@ -189,6 +268,25 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     }
   }
 
+  // ── Escalation details (for escalation-only incidents) ────────────────────
+  if (remediation?.escalation) {
+    const esc = remediation.escalation;
+    body.push(
+      '',
+      '---',
+      '',
+      '### Escalation Details',
+      '',
+      `**Target Team:** ${esc.team}`,
+      `**Priority:** ${esc.priority}`,
+      '',
+      esc.summary,
+      '',
+      '**Investigation Steps:**',
+      ...(esc.investigation_steps || []).map((s, i) => `${i + 1}. ${s}`),
+    );
+  }
+
   // ── Footer ────────────────────────────────────────────────────────────────
   body.push(
     '',
@@ -203,10 +301,15 @@ export async function createDiagnosisIssue(github, { alert, diagnosis, remediati
     await github.commentOnIssue(targetIssueNumber, `## AIOps Diagnosis\n\n${d.summary}\n\n**Root cause:** ${d.root_cause}\n\n> Full report: see linked post-incident issue.`);
   }
 
+  const labels = ['incident', 'aiops-generated', alert.severity.toLowerCase()];
+  if (isInfraIncident) {
+    labels.push('infrastructure');
+  }
+
   const issueUrl = await github.createIssue({
     title:  `[Post-Incident] ${alert.incident_id}: ${alert.title}`,
     body:   bodyStr,
-    labels: ['incident', 'aiops-generated', alert.severity.toLowerCase()],
+    labels,
   });
 
   return issueUrl;

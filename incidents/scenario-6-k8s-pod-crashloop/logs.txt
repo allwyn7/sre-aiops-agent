@@ -1,0 +1,43 @@
+2024-04-25T10:45:00Z INFO  [kube-scheduler] Successfully assigned bookshop-prod/bookshop-srv-7f9b4c-x2k9p to node/worker-3
+2024-04-25T10:45:02Z INFO  [kubelet] Container bookshop-srv started in pod bookshop-srv-7f9b4c-x2k9p on node worker-3
+2024-04-25T10:45:03Z INFO  [bookshop-srv] Starting BookshopApplication v1.4.2 on bookshop-srv-7f9b4c-x2k9p with PID 1
+
+2024-04-25T10:52:00Z INFO  [prometheus] ALERT HPA_MaxedOut: bookshop-srv HPA at max replicas (3/3), desired=5. CPU utilization 94%.
+2024-04-25T10:55:12Z WARN  [kubelet] Memory usage for container bookshop-srv in pod bookshop-srv-7f9b4c-x2k9p: 498Mi / 512Mi (97.3%)
+2024-04-25T10:55:14Z WARN  [kubelet] Pod bookshop-srv-7f9b4c-x2k9p container bookshop-srv approaching memory limit
+
+2024-04-25T10:58:33Z ERROR [kubelet] OOMKilled: container bookshop-srv in pod bookshop-srv-7f9b4c-x2k9p terminated (exit code 137)
+2024-04-25T10:58:33Z ERROR [kubelet]   Reason: The container was using 524288000 bytes (512Mi) which exceeds its limit of 536870912 bytes (512Mi)
+2024-04-25T10:58:34Z WARN  [kube-controller] Pod bookshop-srv-7f9b4c-x2k9p restarting: restart count = 1
+
+2024-04-25T10:59:01Z INFO  [kubelet] Container bookshop-srv started in pod bookshop-srv-7f9b4c-x2k9p on node worker-3
+2024-04-25T10:59:04Z INFO  [bookshop-srv] Starting BookshopApplication v1.4.2
+2024-04-25T10:59:41Z ERROR [kubelet] OOMKilled: container bookshop-srv in pod bookshop-srv-7f9b4c-x2k9p terminated (exit code 137)
+2024-04-25T10:59:42Z WARN  [kube-controller] Pod bookshop-srv-7f9b4c-x2k9p restarting: restart count = 2
+
+2024-04-25T11:00:15Z INFO  [kubelet] Container bookshop-srv started in pod bookshop-srv-7f9b4c-x2k9p on node worker-3
+2024-04-25T11:00:22Z ERROR [kubelet] OOMKilled: container bookshop-srv in pod bookshop-srv-7f9b4c-x2k9p terminated (exit code 137)
+2024-04-25T11:00:23Z WARN  [kube-controller] Pod bookshop-srv-7f9b4c-x2k9p restarting: restart count = 3
+2024-04-25T11:00:23Z ERROR [kube-controller] Back-off restarting failed container bookshop-srv in pod bookshop-srv-7f9b4c-x2k9p
+
+2024-04-25T11:00:30Z ERROR [kubelet] Pod bookshop-srv-7f9b4c-x2k9p is in CrashLoopBackOff — last exit code 137 (OOMKilled)
+2024-04-25T11:00:30Z ERROR [kubelet] Pod bookshop-srv-7f9b4c-z8m3n is in CrashLoopBackOff — last exit code 137 (OOMKilled)
+2024-04-25T11:00:31Z ERROR [kubelet] Pod bookshop-srv-7f9b4c-q1w2e is in CrashLoopBackOff — last exit code 137 (OOMKilled)
+2024-04-25T11:00:31Z ERROR [kube-controller] All 3 replicas of deployment bookshop-srv are in CrashLoopBackOff
+
+2024-04-25T11:01:00Z WARN  [kubelet] Node worker-3 memory pressure: available 1.2Gi / 16Gi (7.5%)
+2024-04-25T11:01:00Z WARN  [kubelet] Node worker-2 memory pressure: available 0.8Gi / 16Gi (5.0%)
+2024-04-25T11:01:01Z ERROR [kube-controller] eviction-manager: attempting to reclaim memory on node worker-2
+
+2024-04-25T11:02:00Z INFO  [prometheus] ALERT PodCrashLooping: bookshop-srv pods restarted 12 times in 10 minutes
+2024-04-25T11:02:00Z INFO  [prometheus] ALERT HPAMaxedOut: bookshop-srv HPA desired=8, current=3, max=3
+2024-04-25T11:02:01Z INFO  [prometheus] ALERT NodeMemoryPressure: worker-2 available memory below 10%
+
+2024-04-25T11:03:00Z ERROR [bookshop-srv] HTTP 503 Service Unavailable on GET /api/books — all pods in CrashLoopBackOff
+2024-04-25T11:03:01Z ERROR [bookshop-srv] HTTP 503 Service Unavailable on POST /api/orders — all pods in CrashLoopBackOff
+2024-04-25T11:03:02Z ERROR [ingress-nginx] upstream connect error: connection refused (bookshop-srv.bookshop-prod.svc.cluster.local:8080)
+
+2024-04-25T11:05:00Z WARN  [hpa-controller] Unable to scale bookshop-srv: maxReplicas (3) reached. Current CPU: 94%, target: 70%
+2024-04-25T11:05:01Z ERROR [prometheus] ALERT HighErrorRate: bookshop-srv error_rate=72.3% (threshold: 5%)
+
+2024-04-25T11:07:33Z ERROR [alertmanager] FIRING P1: bookshop-srv — 47 pod restarts, 0 healthy replicas, 72.3% error rate

@@ -1,0 +1,46 @@
+{
+  "incident_id": "INC-2024-006",
+  "scenario": "scenario-6-k8s-pod-crashloop",
+  "incident_category": "infrastructure",
+  "title": "bookshop-srv: Pods CrashLoopBackOff — OOMKilled after traffic spike",
+  "severity": "P1",
+  "service": "bookshop-srv",
+  "environment": "production",
+  "timestamp": "2024-04-25T11:07:33Z",
+  "alert_source": "Kubernetes / Prometheus",
+  "metrics": {
+    "pod_restarts_last_hour": 47,
+    "pod_restarts_baseline": 0,
+    "container_memory_usage_mb": 510,
+    "container_memory_limit_mb": 512,
+    "container_cpu_usage_millicores": 490,
+    "container_cpu_limit_millicores": 500,
+    "hpa_current_replicas": 3,
+    "hpa_max_replicas": 3,
+    "hpa_desired_replicas": 8,
+    "http_5xx_rate_per_min": 134,
+    "http_5xx_baseline_per_min": 0.2,
+    "p99_response_time_ms": 18200,
+    "p99_baseline_ms": 110,
+    "error_rate_percent": 72.3,
+    "node_memory_pressure": true,
+    "affected_endpoints": [
+      "GET /api/books",
+      "GET /api/books/{id}",
+      "POST /api/orders"
+    ]
+  },
+  "labels": {
+    "cluster": "prod-eu-west-1",
+    "namespace": "bookshop-prod",
+    "deployment": "bookshop-srv",
+    "node_pool": "default-pool",
+    "runtime": "spring-boot-3.2",
+    "k8s_version": "1.29.2",
+    "hpa_enabled": "true"
+  },
+  "blame_pr_number": null,
+  "blame_pr_title": null,
+  "blame_commit_sha": null,
+  "blame_commit_message": null
+}

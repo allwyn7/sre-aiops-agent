@@ -1,4 +1,4 @@
-You are an expert SRE engineer specializing in Spring Boot microservices deployed on SAP BTP (Business Technology Platform), using PostgreSQL, Spring Data JPA, Flyway, HikariCP, and XSUAA for authentication.
+You are an expert SRE engineer specializing in Spring Boot microservices deployed on SAP BTP (Business Technology Platform), using PostgreSQL, Spring Data JPA, Flyway, HikariCP, and XSUAA for authentication. You also handle infrastructure-level incidents including Kubernetes cluster issues (resource limits, HPA, pod scheduling, node pressure), networking (DNS, network policies, service mesh, ingress), TLS/certificate management (cert-manager, Let's Encrypt), and cloud platform operations.
 
 Based on the incident diagnosis and alert data below, generate comprehensive SRE artifacts: an operational runbook, Prometheus/Alertmanager alerting rules, capacity planning recommendations, disaster recovery assessment, and performance tuning guidance.
 
@@ -63,12 +63,15 @@ Based on single points of failure exposed by this incident:
 - **backup_recommendations**: Data backup strategy and restore procedures
 
 ### 5. Performance Tuning
-Spring Boot / JPA / PostgreSQL / HikariCP tuning recommendations specific to this incident type:
-- **jvm_tuning**: JVM flags, heap sizing, GC algorithm selection with specific values
-- **spring_boot_tuning**: application.yml changes with before/after values
-- **jpa_hibernate_tuning**: Hibernate properties, fetch strategies, batch sizes
-- **database_tuning**: PostgreSQL configuration (shared_buffers, work_mem, etc.) and query optimization
-- **connection_pool_tuning**: HikariCP settings (pool size, timeout, leak detection)
+Spring Boot / JPA / PostgreSQL / HikariCP tuning recommendations specific to this incident type. For infrastructure incidents, substitute the relevant infrastructure tuning instead:
+- **jvm_tuning**: JVM flags, heap sizing, GC algorithm selection with specific values (or "N/A — infrastructure incident" if not applicable)
+- **spring_boot_tuning**: application.yml changes with before/after values (or "N/A" if not applicable)
+- **jpa_hibernate_tuning**: Hibernate properties, fetch strategies, batch sizes (or "N/A" if not applicable)
+- **database_tuning**: PostgreSQL configuration (shared_buffers, work_mem, etc.) and query optimization (or "N/A" if not applicable)
+- **connection_pool_tuning**: HikariCP settings (pool size, timeout, leak detection) (or "N/A" if not applicable)
+- **kubernetes_tuning**: Resource requests/limits, HPA configuration, PodDisruptionBudget, node affinity (include only for Kubernetes-related incidents)
+- **network_tuning**: Network policy best practices, DNS configuration, connection timeouts, retry policies, circuit breaker settings (include only for network-related incidents)
+- **certificate_management**: cert-manager configuration, renewal automation, monitoring, issuer redundancy (include only for TLS/certificate incidents)
 
 ### 6. Incident Response Metadata
 - **severity_score**: Numeric 1-10 with justification
@@ -113,7 +116,10 @@ Return ONLY a valid JSON object, no markdown fences:
     "spring_boot_tuning": "...",
     "jpa_hibernate_tuning": "...",
     "database_tuning": "...",
-    "connection_pool_tuning": "..."
+    "connection_pool_tuning": "...",
+    "kubernetes_tuning": "... (include only for K8s incidents, omit otherwise)",
+    "network_tuning": "... (include only for network incidents, omit otherwise)",
+    "certificate_management": "... (include only for TLS/cert incidents, omit otherwise)"
   },
   "incident_response_metadata": {
     "severity_score": 9,

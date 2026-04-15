@@ -1,0 +1,38 @@
+2024-04-27T03:00:00Z INFO  [cert-manager] Certificate bookshop-prod/bookshop-tls: renewal check — expires in 1d 0h 15m
+2024-04-27T03:00:01Z INFO  [cert-manager] Certificate bookshop-prod/bookshop-tls: triggering renewal (within renewal window)
+2024-04-27T03:00:02Z INFO  [cert-manager] Order bookshop-prod/bookshop-tls-renewal-x7k2m created for certificate bookshop-tls
+2024-04-27T03:00:05Z INFO  [cert-manager] Challenge bookshop-prod/bookshop-tls-renewal-x7k2m-http01: presented HTTP-01 challenge
+2024-04-27T03:00:30Z WARN  [cert-manager] Challenge bookshop-prod/bookshop-tls-renewal-x7k2m-http01: waiting for HTTP-01 challenge propagation...
+2024-04-27T03:01:30Z ERROR [cert-manager] Challenge bookshop-prod/bookshop-tls-renewal-x7k2m-http01: ACME challenge verification failed
+2024-04-27T03:01:30Z ERROR [cert-manager]   Error: acme: authorization for domain "bookshop.example.com" failed: fetching http://bookshop.example.com/.well-known/acme-challenge/xK7m2... returned status 404
+2024-04-27T03:01:31Z ERROR [cert-manager]   Reason: The HTTP-01 challenge solver ingress route is not configured correctly. The ACME server could not reach the challenge URL.
+2024-04-27T03:01:31Z WARN  [cert-manager] Order bookshop-prod/bookshop-tls-renewal-x7k2m: marking as failed. Will retry.
+
+2024-04-27T06:00:00Z INFO  [cert-manager] Certificate bookshop-prod/bookshop-tls: renewal check — expires in 0d 21h 15m
+2024-04-27T06:00:02Z INFO  [cert-manager] Order bookshop-prod/bookshop-tls-renewal-p3q8r created (retry 1)
+2024-04-27T06:00:30Z ERROR [cert-manager] Challenge failed again: HTTP-01 verification returned 404
+2024-04-27T06:00:31Z ERROR [cert-manager]   Check that the cert-manager solver ingress is routing correctly for /.well-known/acme-challenge/ paths
+2024-04-27T06:00:31Z WARN  [cert-manager] Certificate bookshop-tls renewal failed — 2 consecutive failures
+
+2024-04-27T12:00:00Z INFO  [cert-manager] Certificate bookshop-prod/bookshop-tls: renewal check — expires in 0d 15h 15m
+2024-04-27T12:00:30Z ERROR [cert-manager] Challenge failed: HTTP-01 verification returned 404 (attempt 3)
+2024-04-27T12:00:31Z ERROR [cert-manager] Certificate bookshop-tls: CRITICAL — 3 consecutive renewal failures. Certificate expires in 15 hours.
+
+2024-04-28T02:00:00Z WARN  [cert-manager] Certificate bookshop-prod/bookshop-tls: renewal check — expires in 0d 1h 15m
+2024-04-28T02:00:31Z ERROR [cert-manager] Challenge failed: HTTP-01 verification returned 404 (attempt 4)
+2024-04-28T02:00:32Z ERROR [cert-manager] Certificate bookshop-tls: IMMINENT EXPIRY — certificate expires in 1 hour. All renewal attempts have failed.
+
+2024-04-28T03:15:00Z ERROR [cert-manager] Certificate bookshop-prod/bookshop-tls: EXPIRED. Subject: bookshop.example.com, Issuer: Let's Encrypt, NotAfter: 2024-04-28T03:15:00Z
+2024-04-28T03:15:01Z ERROR [ingress-nginx] SSL certificate "bookshop-prod/bookshop-tls" has expired
+2024-04-28T03:15:01Z ERROR [ingress-nginx] TLS handshake error from 10.0.0.1:443: x509: certificate has expired or is not yet valid
+2024-04-28T03:15:02Z ERROR [ingress-nginx] TLS handshake error from 10.0.0.2:443: x509: certificate has expired or is not yet valid
+2024-04-28T03:15:02Z ERROR [ingress-nginx] TLS handshake error from 10.0.0.3:443: tls: handshake failure
+
+2024-04-28T03:15:10Z ERROR [ingress-nginx] 312 TLS handshake errors in last 60 seconds — all HTTPS traffic failing
+2024-04-28T03:15:10Z WARN  [ingress-nginx] Serving expired certificate for bookshop.example.com — clients rejecting connection
+
+2024-04-28T03:15:20Z ERROR [prometheus] ALERT CertificateExpired: bookshop-tls certificate expired 15 minutes ago
+2024-04-28T03:15:20Z ERROR [prometheus] ALERT HTTPSHandshakeFailures: 312 failures/min (threshold: 1)
+2024-04-28T03:15:21Z ERROR [prometheus] ALERT ZeroSuccessfulRequests: bookshop-srv 0 HTTP 2xx responses in last 5 minutes
+
+2024-04-28T03:15:42Z ERROR [alertmanager] FIRING P1: bookshop-srv — TLS certificate expired, 100% HTTPS failure rate, 0 successful requests

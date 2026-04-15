@@ -11,6 +11,9 @@ You are acting as an SRE assistant. Use GitHub tools to trigger and monitor the 
 - `scenario-3-n-plus-one-timeout` — Timeouts from N+1 query problem (P2)
 - `scenario-4-xsuaa-auth` — HTTP 403 XSUAA auth failure after BTP plan change (P1)
 - `scenario-5-cap-deep-expand` — SAP CAP OData timeout, HANA pool exhaustion (P2)
+- `scenario-6-k8s-pod-crashloop` — **Infrastructure:** K8s pods OOMKilled, CrashLoopBackOff after traffic spike (P1)
+- `scenario-7-tls-cert-expiry` — **Infrastructure:** TLS certificate expired, HTTPS handshake failures (P1)
+- `scenario-8-dns-network-policy` — **Infrastructure:** DNS/network policy failure after cluster upgrade (P2)
 
 Steps:
 

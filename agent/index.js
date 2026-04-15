@@ -7,6 +7,7 @@ import { createDiagnosisIssue } from './output/create-issue.js';
 import { createFixPR } from './output/create-pr.js';
 import { appendToKnowledgeBase } from './output/knowledge-base.js';
 import { commitSREArtifacts } from './output/commit-sre-artifacts.js';
+import { dispatchRemediation } from './output/dispatch-remediation.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,8 @@ if (!GITHUB_REPO || !INCIDENT_SCENARIO) {
 
 const [owner, repo] = GITHUB_REPO.split('/');
 
+const INFRA_REMEDIATION_TYPES = ['infrastructure_action', 'escalation'];
+
 // ── Main agent loop ──────────────────────────────────────────────────────────
 async function run() {
   console.log(`\n🚨 AIOps Agent starting — scenario: ${INCIDENT_SCENARIO}\n`);
@@ -40,12 +43,25 @@ async function run() {
   const logs = fs.readFileSync(path.join(scenarioDir, 'logs.txt'), 'utf8');
   console.log(`📂 Loaded incident: ${alert.incident_id} — ${alert.title}`);
 
+  const isInfraIncident = !alert.blame_pr_number;
+  if (isInfraIncident) {
+    console.log(`🏗️  Infrastructure incident detected (no blame PR)`);
+  }
+
   // 2. Fetch recent PRs, blame PR diff, and past incidents from knowledge base
-  console.log('🔍 Fetching recent PRs from GitHub...');
-  const recentPRs  = await github.getRecentPRs(10);
-  const blameDiff  = await github.getPRDiff(alert.blame_pr_number);
-  const currentFlywayVersion = await github.getHighestFlywayVersion();
-  console.log(`   ${recentPRs.length} PRs fetched. Blame PR: #${alert.blame_pr_number}`);
+  let recentPRs  = [];
+  let blameDiff  = '';
+  let currentFlywayVersion = 1;
+
+  if (!isInfraIncident) {
+    console.log('🔍 Fetching recent PRs from GitHub...');
+    recentPRs  = await github.getRecentPRs(10);
+    blameDiff  = await github.getPRDiff(alert.blame_pr_number);
+    currentFlywayVersion = await github.getHighestFlywayVersion();
+    console.log(`   ${recentPRs.length} PRs fetched. Blame PR: #${alert.blame_pr_number}`);
+  } else {
+    console.log('🔍 Infrastructure incident — skipping PR context fetch.');
+  }
 
   // 2b. Load past incidents from knowledge base for learning loop
   console.log('📚 Loading past incidents from knowledge base...');
@@ -61,24 +77,38 @@ async function run() {
     logs,
     recentPRs,
     blamePRNumber: alert.blame_pr_number,
-    blamePRTitle:  alert.blame_pr_title,
-    blamePRDiff:   blameDiff,
+    blamePRTitle:  alert.blame_pr_title ?? '(no blame PR — infrastructure incident)',
+    blamePRDiff:   blameDiff || '(no blame PR)',
     pastIncidents,
   });
   console.log(`   Confidence: ${diagnosisRaw.diagnosis.confidence}`);
   console.log(`   Root cause: ${diagnosisRaw.diagnosis.summary}`);
 
   // 4. Generate remediation with LLM ─────────────────────────────────────────
-  // Confidence gate: low confidence → force pr_rollback (safest action).
-  // medium confidence → allow targeted fix but the Issue will show a warning.
+  // Confidence gate: low confidence → force pr_rollback (safest action) for app incidents,
+  // or escalation for infrastructure incidents.
+  // Medium confidence → allow targeted fix but the Issue will show a warning.
   const diagnosedType   = diagnosisRaw.remediation_type;
   const confidence      = diagnosisRaw.diagnosis?.confidence ?? 'low';
-  const remediationType = confidence === 'low' ? 'pr_rollback' : diagnosedType;
+  let remediationType;
 
-  if (confidence === 'low' && diagnosedType !== 'pr_rollback') {
-    console.log(`⚠️  Confidence is LOW — overriding remediation from '${diagnosedType}' → 'pr_rollback' (safest action)`);
-  } else if (confidence === 'medium') {
-    console.log(`⚠️  Confidence is MEDIUM — proceeding with '${remediationType}' but Issue will carry a warning`);
+  if (confidence === 'low') {
+    if (isInfraIncident || INFRA_REMEDIATION_TYPES.includes(diagnosedType)) {
+      remediationType = 'escalation';
+      if (diagnosedType !== 'escalation') {
+        console.log(`⚠️  Confidence is LOW on infrastructure incident — overriding from '${diagnosedType}' → 'escalation'`);
+      }
+    } else {
+      remediationType = 'pr_rollback';
+      if (diagnosedType !== 'pr_rollback') {
+        console.log(`⚠️  Confidence is LOW — overriding remediation from '${diagnosedType}' → 'pr_rollback' (safest action)`);
+      }
+    }
+  } else {
+    remediationType = diagnosedType;
+    if (confidence === 'medium') {
+      console.log(`⚠️  Confidence is MEDIUM — proceeding with '${remediationType}' but Issue will carry a warning`);
+    }
   }
 
   console.log('🔧 Calling LLM for remediation plan...');
@@ -88,7 +118,12 @@ async function run() {
     incidentId:             alert.incident_id,
     currentFlywayVersion,
   });
-  console.log(`   Fix PR branch: ${remediationRaw.branch_name}`);
+
+  if (remediationRaw.branch_name) {
+    console.log(`   Fix PR branch: ${remediationRaw.branch_name}`);
+  } else {
+    console.log(`   Escalation-only — no fix branch.`);
+  }
 
   // 4b. Generate SRE artifacts with LLM ──────────────────────────────────────
   let sreArtifacts = null;
@@ -114,6 +149,11 @@ async function run() {
     recommendationsPath:  `knowledge-base/recommendations/${idLower}.md`,
   };
 
+  const confidenceOverrideNote =
+    confidence === 'low' && diagnosedType !== remediationType
+      ? `Diagnosis confidence was LOW — remediation downgraded from \`${diagnosedType}\` to \`${remediationType}\` for safety. Human review of root cause is required before a targeted fix is attempted.`
+      : null;
+
   console.log('📝 Creating post-incident GitHub Issue...');
   const issueUrl = await createDiagnosisIssue(github, {
     alert,
@@ -123,19 +163,40 @@ async function run() {
     sreArtifacts,
     artifactPaths:          sreArtifacts ? artifactPaths : null,
     recentPRs,
-    confidenceOverrideNote: confidence === 'low' && diagnosedType !== 'pr_rollback'
-      ? `Diagnosis confidence was LOW — remediation downgraded from \`${diagnosedType}\` to \`pr_rollback\` for safety. Human review of root cause is required before a targeted fix is attempted.`
-      : null,
+    confidenceOverrideNote,
+    isInfraIncident,
   });
   console.log(`   Issue: ${issueUrl}`);
 
-  // 6. Create fix PR ─────────────────────────────────────────────────────────
-  console.log('🔀 Creating fix PR...');
-  const prUrl = await createFixPR(github, {
-    remediation: remediationRaw,
-    incidentId:  alert.incident_id,
-  });
-  console.log(`   PR: ${prUrl}`);
+  // 6. Create fix PR (skip for escalation — nothing to fix via code) ─────────
+  let prUrl = null;
+  if (remediationType !== 'escalation' && remediationRaw.branch_name) {
+    console.log('🔀 Creating fix PR...');
+    prUrl = await createFixPR(github, {
+      remediation: remediationRaw,
+      incidentId:  alert.incident_id,
+      isInfraIncident,
+    });
+    console.log(`   PR: ${prUrl}`);
+  } else {
+    console.log('📨 Escalation-only incident — no fix PR created.');
+  }
+
+  // 6b. Dispatch infrastructure remediation workflow ──────────────────────────
+  if (remediationType === 'infrastructure_action' && prUrl) {
+    try {
+      console.log('🚀 Dispatching infrastructure remediation workflow...');
+      const dispatchResult = await dispatchRemediation(github, {
+        incidentId:      alert.incident_id,
+        infraActionType: remediationRaw.infra_action_type,
+        targetResources: remediationRaw.target_resources,
+        prUrl,
+      });
+      console.log(`   Workflow: ${dispatchResult.workflowUrl}`);
+    } catch (err) {
+      console.warn(`   Warning: could not dispatch remediation workflow: ${err.message}. The IaC PR was still created.`);
+    }
+  }
 
   // 7. Append to knowledge base ──────────────────────────────────────────────
   console.log('📚 Updating knowledge base...');
@@ -159,7 +220,13 @@ async function run() {
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
     fs.appendFileSync(outputFile, `diagnosis_issue_url=${issueUrl}\n`);
-    fs.appendFileSync(outputFile, `fix_pr_url=${prUrl}\n`);
+    if (prUrl) {
+      fs.appendFileSync(outputFile, `fix_pr_url=${prUrl}\n`);
+    }
+    if (isInfraIncident) {
+      fs.appendFileSync(outputFile, `incident_category=infrastructure\n`);
+      fs.appendFileSync(outputFile, `remediation_type=${remediationType}\n`);
+    }
     if (sreArtifacts) {
       fs.appendFileSync(outputFile, `runbook_path=${artifactPaths.runbookPath}\n`);
       fs.appendFileSync(outputFile, `alerting_rules_path=${artifactPaths.alertingRulesPath}\n`);

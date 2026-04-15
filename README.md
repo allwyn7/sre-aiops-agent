@@ -11,7 +11,8 @@ A GitHub Copilot-backed incident response agent that automatically diagnoses pro
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                   Incident Trigger                               │
-│          (GitHub Actions workflow_dispatch or local CLI)         │
+│      (GitHub Actions workflow_dispatch, repository_dispatch,     │
+│       Azure Monitor webhook, or local CLI)                      │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
               ┌─────────────▼─────────────┐
@@ -19,6 +20,7 @@ A GitHub Copilot-backed incident response agent that automatically diagnoses pro
               │                           │
               │  1. Load alert + logs      │
               │  2. Fetch recent PRs       │
+              │     (skip if infra)        │
               │  3. Read knowledge base    │
               └─────────────┬─────────────┘
                             │
@@ -35,26 +37,39 @@ A GitHub Copilot-backed incident response agent that automatically diagnoses pro
               │       GitHub API           │
               │                           │
               │  • Create Issue (report)   │
-              │  • Open fix PR             │
+              │  • Open fix PR (code/IaC)  │
               │  • Commit runbooks/rules   │
               │  • Update knowledge base   │
+              └─────────────┬─────────────┘
+                            │
+              ┌─────────────▼─────────────┐  (infrastructure only)
+              │   GitHub Actions Dispatch  │
+              │                           │
+              │  • Trigger remediation     │
+              │    workflow (scale K8s,    │
+              │    rotate certs, update    │
+              │    network policies)       │
+              │  • Comment result on Issue │
               └───────────────────────────┘
 ```
 
 ### Pipeline Steps
 
-1. **Ingest** — Load `alert.json` + `logs.txt` + recent merged PRs + blame PR diff from GitHub
+1. **Ingest** — Load `alert.json` + `logs.txt` + recent merged PRs + blame PR diff from GitHub (PRs skipped for infrastructure incidents)
 2. **Learn** — Read `knowledge-base/incidents.md` to identify recurring patterns from past incidents
-3. **Diagnose** — LLM correlates logs, PR diffs, and past incidents; outputs structured root cause JSON
-4. **Remediate** — LLM generates fix files (Flyway migration, code patch, config fix, feature flag toggle, or rollback)
+3. **Diagnose** — LLM correlates logs, PR diffs (or infrastructure signals), and past incidents; outputs structured root cause JSON
+4. **Remediate** — LLM generates fix files (Flyway migration, code patch, config fix, feature flag toggle, IaC manifests, or rollback)
 5. **SRE Artifacts** — LLM generates runbook, Prometheus alerting rules, capacity/DR/performance recommendations
 6. **Report** — Creates a post-incident GitHub Issue with Mermaid timeline, severity, MTTR estimate, escalation path, and artifact links
-7. **Fix PR** — Opens a PR with generated fix files; CI validates automatically
-8. **Learn** — Appends incident entry to knowledge base; commits runbook, alerting rules, and recommendations
+7. **Fix PR** — Opens a PR with generated fix files; CI validates automatically (skipped for escalation-only incidents)
+8. **Infrastructure Dispatch** — For `infrastructure_action` incidents: dispatches a GitHub Actions workflow to execute the remediation (scale K8s, rotate certs, update network policies)
+9. **Learn** — Appends incident entry to knowledge base; commits runbook, alerting rules, and recommendations
 
 ---
 
 ## Incident Scenarios
+
+### Application Incidents (blame PR → code fix)
 
 | Scenario | Incident | Severity | Remediation Type | Root Cause |
 |----------|----------|----------|-----------------|------------|
@@ -64,11 +79,19 @@ A GitHub Copilot-backed incident response agent that automatically diagnoses pro
 | `scenario-4-xsuaa-auth` | HTTP 401/403 — XSUAA token validation failure | P1 | `config_fix` | PR #58 updated `xsappname` without re-creating service bindings |
 | `scenario-5-cap-deep-expand` | OData timeouts — HANA pool exhausted | P2 | `feature_flag` | PR #62 enabled `deep_reads` in CAP `package.json`, generating 300+ HANA queries per request |
 
+### Infrastructure Incidents (no blame PR → IaC fix + workflow dispatch)
+
+| Scenario | Incident | Severity | Remediation Type | Root Cause |
+|----------|----------|----------|-----------------|------------|
+| `scenario-6-k8s-pod-crashloop` | Pods CrashLoopBackOff — OOMKilled | P1 | `infrastructure_action` | Traffic spike exceeded container memory limits (512Mi), HPA maxed at 3 replicas |
+| `scenario-7-tls-cert-expiry` | HTTPS handshake failures — cert expired | P1 | `infrastructure_action` | cert-manager HTTP-01 solver misconfigured, Let's Encrypt cert expired without renewal |
+| `scenario-8-dns-network-policy` | Inter-service DNS timeouts | P2 | `escalation` | K8s 1.28→1.29 cluster upgrade changed network policy semantics, blocking DNS egress to kube-system |
+
 ---
 
 ## Key Features
 
-### 6 Remediation Types
+### 8 Remediation Types
 
 The agent selects the appropriate fix strategy based on the diagnosis:
 
@@ -80,6 +103,8 @@ The agent selects the appropriate fix strategy based on the diagnosis:
 | `feature_flag` | New feature flag causing blast radius | Set `cds.features.deep_reads: false` |
 | `pr_rollback` | P0/P1 where reverting is fastest mitigation | Generate files in pre-PR state |
 | `dependency_update` | Vulnerable or broken dependency version | Bump version in `pom.xml` / `package.json` |
+| `infrastructure_action` | Infrastructure config change needed | K8s resource scaling, cert rotation, network policy update — generates IaC PR + dispatches GitHub Actions workflow |
+| `escalation` | Requires human/external intervention | Cloud provider ticket, manual DNS change, complex cross-team coordination |
 
 ### 6 SRE Artifacts Per Incident
 
@@ -100,6 +125,19 @@ The agent reads past incidents before every diagnosis and appends new ones after
 - Recognises recurring error patterns and references the prior incident ID
 - Accelerates diagnosis with known resolutions
 - Builds an organisational memory that survives team turnover
+
+### GitHub Copilot Chat Integration
+
+The agent integrates with GitHub Copilot Chat as an interactive SRE assistant. Using the GitHub MCP server (`.vscode/mcp.json`) and agent-mode prompts (`.github/prompts/`), SREs can investigate and respond to incidents directly from their IDE:
+
+| Command | What It Does |
+|---------|-------------|
+| `@workspace /sre-diagnose scenario-6-k8s-pod-crashloop` | Interactively diagnose an incident — reads alerts, logs, blame PRs, and knowledge base via MCP |
+| `@workspace /sre-status` | Live incident dashboard — shows all open incidents, fix PRs, and their current status |
+| `@workspace /sre-remediate scenario-2-500-schema-drift` | Trigger the full agent pipeline and monitor the remediation lifecycle |
+| `@workspace /review-fix-pr 42` | SRE code review of a fix PR with merge/hold/reject recommendation |
+
+The MCP server provides Copilot with direct access to GitHub Issues, PRs, and repository contents — making Copilot a conversational SRE agent without any external services.
 
 ### Self-Healing CI Repair Loop
 
@@ -173,29 +211,37 @@ node index.js
   incident-response.yml   # workflow_dispatch trigger — runs the full agent pipeline
   ci.yml                  # validates agent-generated fix PRs (Maven build + Flyway check)
   repair-fix.yml          # self-healing: auto-repairs failed fix PRs
+  infra-remediation.yml   # infrastructure remediation: scale K8s, rotate certs, update policies
+  azure-monitor-trigger.yml  # Azure Monitor webhook → agent pipeline
 
 agent/
-  index.js                # orchestrator (8-step pipeline)
+  index.js                # orchestrator (9-step pipeline, handles app + infra incidents)
   repair.js               # self-healing repair agent
-  github-client.js        # GitHub REST API wrapper (Octokit, GHE-compatible)
+  github-client.js        # GitHub REST API wrapper (Octokit, GHE-compatible, workflow dispatch)
   llm-client.js           # GitHub Models wrapper (gpt-4o, retry + JSON parsing)
+  adapters/
+    azure-monitor.js      # Azure Monitor Common Alert Schema → agent alert format
   prompts/
-    diagnose.txt          # SAP BTP / CAP-aware diagnosis prompt
-    remediate.txt         # fix generation prompt (6 remediation types)
+    diagnose.txt          # SAP BTP / CAP / infrastructure-aware diagnosis prompt
+    remediate.txt          # fix generation prompt (8 remediation types)
     sre-artifacts.txt     # runbook + alerting rules + capacity/DR/perf artifacts
     repair.txt            # CI failure analysis + corrected fix generation
   output/
     create-issue.js       # post-incident Issue with Mermaid timeline + full SRE context
-    create-pr.js          # fix PR creator (labels: aiops-generated)
+    create-pr.js          # fix PR creator (labels: aiops-generated, infrastructure)
     knowledge-base.js     # appends runbook entry to incidents.md
     commit-sre-artifacts.js  # commits runbook, alerting rules, recommendations
+    dispatch-remediation.js  # dispatches infra-remediation.yml workflow
 
 incidents/
   scenario-1-oom-cache/
   scenario-2-500-schema-drift/
   scenario-3-n-plus-one-timeout/
   scenario-4-xsuaa-auth/
-  scenario-5-cap-deep-expand/       # SAP CAP / HANA pool exhaustion
+  scenario-5-cap-deep-expand/
+  scenario-6-k8s-pod-crashloop/     # K8s pods OOMKilled, CrashLoopBackOff
+  scenario-7-tls-cert-expiry/       # TLS cert expired, HTTPS failures
+  scenario-8-dns-network-policy/    # DNS blocked by network policy after upgrade
 
 knowledge-base/
   incidents.md            # learning loop knowledge base (seeded + auto-updated)
@@ -230,6 +276,19 @@ app/                      # Spring Boot bookshop microservice (demo target for s
 ### Act 5 — CAP / Feature Flag Scenario
 > Trigger `scenario-5-cap-deep-expand`. Agent diagnoses `cds.features.deep_reads: true` as the blast radius, selects `feature_flag` remediation, generates a `package.json` patch disabling the flag.
 
+### Act 6 — Infrastructure Incident (No Blame PR)
+> Trigger `scenario-6-k8s-pod-crashloop`. The agent detects there is no blame PR, skips PR context fetching, and diagnoses a **Kubernetes infrastructure failure**: pods OOMKilled due to container memory limits exceeded during a traffic spike. The agent:
+> 1. Creates a **GitHub Issue** with an infrastructure-specific timeline (no PR reference)
+> 2. Generates an **IaC fix PR** with updated K8s deployment resource limits and HPA configuration
+> 3. **Dispatches a GitHub Actions remediation workflow** (`infra-remediation.yml`) to execute the scaling
+> 4. The workflow posts a comment back on the incident issue confirming remediation was executed
+
+### Act 7 — TLS Certificate Expiry
+> Trigger `scenario-7-tls-cert-expiry`. Agent diagnoses an expired TLS certificate (cert-manager renewal failures), selects `infrastructure_action`, generates a corrected cert-manager Certificate resource, and dispatches the cert rotation workflow.
+
+### Act 8 — Network Policy / Escalation
+> Trigger `scenario-8-dns-network-policy`. Agent diagnoses DNS resolution blocked by network policies after a K8s 1.28→1.29 cluster upgrade. Confidence is medium, and the fix requires cross-team coordination. Agent selects `escalation`, creates a detailed escalation issue with investigation commands — no PR, no automated fix. Human-in-the-loop for complex infrastructure.
+
 ---
 
 ## Tech Stack
@@ -254,4 +313,8 @@ app/                      # Spring Boot bookshop microservice (demo target for s
 
 **GitHub-native system of record.** Every incident, diagnosis, fix, and learned runbook lives as GitHub Issues, PRs, and markdown files. No separate dashboard, no external knowledge base.
 
-**Continuous learning by design.** Past incidents feed back into the diagnosis prompt. The agent gets better with every run — the core promise of AIOps.
+**GitHub Actions as infrastructure orchestration.** For infrastructure incidents, the agent dispatches GitHub Actions workflows to execute remediation (scale K8s resources, rotate certificates, update network policies). This demonstrates that GitHub Actions is not just CI/CD — it's a full infrastructure automation layer.
+
+**Application + Infrastructure, same pipeline.** The same agent handles both application bugs (traced to a blame PR) and infrastructure failures (no blame PR). The pipeline adapts: it skips PR context for infra incidents, uses infrastructure-specific diagnosis, generates IaC files instead of code patches, and dispatches remediation workflows. One tool for all SRE incident response.
+
+**Continuous learning by design.** Past incidents feed back into the diagnosis prompt. The agent gets better with every run — the core promise of AIOps. Infrastructure incidents are included in the knowledge base alongside application incidents, building a complete operational memory.

@@ -282,6 +282,21 @@ export class GitHubClient {
     });
   }
 
+  // Dispatch a workflow_dispatch event on a named workflow
+  async dispatchWorkflow(workflowId, inputs = {}) {
+    const { defaultBranch } = await this.getDefaultBranchSHA();
+    await this.octokit.actions.createWorkflowDispatch({
+      owner:       this.owner,
+      repo:        this.repo,
+      workflow_id: workflowId,
+      ref:         defaultBranch,
+      inputs,
+    });
+    return {
+      workflowUrl: `https://github.com/${this.owner}/${this.repo}/actions/workflows/${workflowId}`,
+    };
+  }
+
   // Add labels to a PR/issue
   async addLabels(issueNumber, labels) {
     await this.octokit.issues.addLabels({

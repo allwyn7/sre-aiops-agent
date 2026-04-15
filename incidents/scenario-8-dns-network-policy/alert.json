@@ -1,0 +1,44 @@
+{
+  "incident_id": "INC-2024-008",
+  "scenario": "scenario-8-dns-network-policy",
+  "incident_category": "infrastructure",
+  "title": "bookshop-srv: Inter-service communication failure — DNS timeouts after cluster upgrade",
+  "severity": "P2",
+  "service": "bookshop-srv",
+  "environment": "production",
+  "timestamp": "2024-05-01T16:42:18Z",
+  "alert_source": "Kubernetes / CoreDNS / Calico CNI",
+  "context": "Cluster upgraded from K8s 1.28 to 1.29 at 2024-05-01T15:00:00Z. Network policies may have changed semantics.",
+  "metrics": {
+    "dns_resolution_failure_rate_percent": 67.4,
+    "dns_resolution_failure_baseline_percent": 0.01,
+    "inter_service_timeout_rate_per_min": 89,
+    "inter_service_timeout_baseline_per_min": 0.1,
+    "network_policy_deny_count_per_min": 412,
+    "network_policy_deny_baseline_per_min": 3,
+    "http_5xx_rate_per_min": 78,
+    "http_5xx_baseline_per_min": 0.3,
+    "p99_response_time_ms": 30000,
+    "p99_baseline_ms": 95,
+    "error_rate_percent": 58.1,
+    "affected_endpoints": [
+      "GET /api/books (calls inventory-srv)",
+      "POST /api/orders (calls payment-srv)",
+      "GET /api/reviews (calls review-srv)"
+    ]
+  },
+  "labels": {
+    "cluster": "prod-eu-west-1",
+    "namespace": "bookshop-prod",
+    "source_namespace": "bookshop-prod",
+    "target_namespaces": "inventory-prod,payment-prod,review-prod",
+    "network_policy_name": "bookshop-egress-policy",
+    "cni_plugin": "calico-3.27",
+    "k8s_version": "1.29.2",
+    "k8s_previous_version": "1.28.5"
+  },
+  "blame_pr_number": null,
+  "blame_pr_title": null,
+  "blame_commit_sha": null,
+  "blame_commit_message": null
+}

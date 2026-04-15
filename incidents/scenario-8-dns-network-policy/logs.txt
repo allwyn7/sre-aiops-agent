@@ -1,0 +1,42 @@
+2024-05-01T15:00:00Z INFO  [cluster-admin] Kubernetes cluster upgrade initiated: 1.28.5 → 1.29.2
+2024-05-01T15:00:01Z INFO  [cluster-admin] Rolling update of control plane components...
+2024-05-01T15:12:00Z INFO  [cluster-admin] Control plane upgraded to 1.29.2. Starting node pool rolling update.
+2024-05-01T15:30:00Z INFO  [cluster-admin] Node pool default-pool: 3/6 nodes upgraded to 1.29.2
+2024-05-01T15:45:00Z INFO  [cluster-admin] Node pool default-pool: 6/6 nodes upgraded. Cluster upgrade complete.
+
+2024-05-01T15:45:30Z INFO  [calico] Felix agent restarted on all nodes. Reloading network policies.
+2024-05-01T15:45:31Z WARN  [calico] NetworkPolicy bookshop-prod/bookshop-egress-policy: evaluating with updated Kubernetes 1.29 network policy semantics
+2024-05-01T15:45:32Z INFO  [calico] NetworkPolicy bookshop-prod/bookshop-egress-policy: applied. 4 egress rules active.
+
+2024-05-01T16:00:00Z INFO  [bookshop-srv] GET /api/books — calling inventory-srv.inventory-prod.svc.cluster.local:8080
+2024-05-01T16:00:05Z ERROR [bookshop-srv] Failed to resolve inventory-srv.inventory-prod.svc.cluster.local: DNS resolution timed out after 5000ms
+2024-05-01T16:00:05Z ERROR [bookshop-srv] HTTP 500 on GET /api/books: java.net.UnknownHostException: inventory-srv.inventory-prod.svc.cluster.local
+
+2024-05-01T16:00:10Z ERROR [coredns] NXDOMAIN for inventory-srv.inventory-prod.svc.cluster.local from 10.244.2.15 (bookshop-srv pod)
+2024-05-01T16:00:10Z DEBUG [coredns] Query: inventory-srv.inventory-prod.svc.cluster.local IN A — source pod: bookshop-srv-7f9b4c-x2k9p (namespace: bookshop-prod)
+2024-05-01T16:00:11Z WARN  [coredns] DNS query from bookshop-prod namespace blocked by network policy — cannot reach kube-dns in kube-system
+
+2024-05-01T16:00:15Z ERROR [calico] DENY egress packet: src=bookshop-prod/bookshop-srv-7f9b4c-x2k9p dst=kube-system/coredns-5d78c9869d-abc12 proto=UDP port=53
+2024-05-01T16:00:15Z ERROR [calico]   Policy: bookshop-prod/bookshop-egress-policy, Rule: egress-allow-namespace
+2024-05-01T16:00:15Z ERROR [calico]   Reason: K8s 1.29 network policy evaluation changed — namespaceSelector now requires explicit label match for kube-system
+2024-05-01T16:00:16Z ERROR [calico] DENY egress packet: src=bookshop-prod/bookshop-srv-7f9b4c-z8m3n dst=kube-system/coredns-5d78c9869d-def34 proto=UDP port=53
+
+2024-05-01T16:05:00Z ERROR [bookshop-srv] POST /api/orders — calling payment-srv.payment-prod.svc.cluster.local:8080
+2024-05-01T16:05:05Z ERROR [bookshop-srv] Failed to resolve payment-srv.payment-prod.svc.cluster.local: DNS resolution timed out
+2024-05-01T16:05:05Z ERROR [bookshop-srv] HTTP 500 on POST /api/orders: java.net.UnknownHostException: payment-srv.payment-prod.svc.cluster.local
+
+2024-05-01T16:10:00Z ERROR [calico] 412 DENY events in last 60 seconds from namespace bookshop-prod
+2024-05-01T16:10:01Z ERROR [calico] Top denied destinations: kube-system/coredns (UDP:53), inventory-prod/inventory-srv (TCP:8080), payment-prod/payment-srv (TCP:8080)
+
+2024-05-01T16:15:00Z WARN  [coredns] 67.4% of DNS queries from bookshop-prod namespace failing — queries blocked by network policy
+2024-05-01T16:15:01Z WARN  [coredns] Affected services: inventory-srv, payment-srv, review-srv — all cross-namespace lookups failing
+
+2024-05-01T16:30:00Z ERROR [bookshop-srv] Circuit breaker OPEN for inventory-srv: 50 consecutive failures
+2024-05-01T16:30:01Z ERROR [bookshop-srv] Circuit breaker OPEN for payment-srv: 48 consecutive failures
+2024-05-01T16:30:02Z ERROR [bookshop-srv] Circuit breaker OPEN for review-srv: 45 consecutive failures
+
+2024-05-01T16:35:00Z ERROR [prometheus] ALERT HighDNSFailureRate: bookshop-prod DNS resolution failure rate 67.4% (threshold: 1%)
+2024-05-01T16:35:00Z ERROR [prometheus] ALERT NetworkPolicyDenySpike: 412 deny events/min from bookshop-prod (threshold: 10)
+2024-05-01T16:35:01Z ERROR [prometheus] ALERT InterServiceTimeouts: 89 timeouts/min between bookshop-srv and downstream services
+
+2024-05-01T16:42:18Z ERROR [alertmanager] FIRING P2: bookshop-srv — inter-service communication failure, 67.4% DNS failure rate, 412 network policy denies/min. Started after cluster upgrade from 1.28 to 1.29.

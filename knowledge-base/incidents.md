@@ -63,6 +63,46 @@ Re-created the XSUAA service binding and restaged the application. Updated the d
 
 <!-- Agent appends entries below this line -->
 
+## INC-2024-015 — 2024-03-22
+
+**Title:** bookshop-srv: Pods in CrashLoopBackOff after traffic spike — container memory limits exceeded
+**Severity:** P1 | **Service:** `bookshop-srv`
+**Category:** Infrastructure
+
+### Pattern
+`Back-off restarting failed container` combined with `OOMKilled exit code 137` and container memory usage exceeding limits
+
+### Root Cause
+A traffic spike during a marketing campaign pushed pod memory usage above the 512Mi container limit. The HPA was configured with maxReplicas of 3, insufficient for the 10x traffic increase. Pods were OOMKilled by the kernel cgroup and entered CrashLoopBackOff. No code change caused this — the resource limits were undersized for peak load.
+
+### Resolution
+Increased container memory limit from 512Mi to 1Gi, CPU limit from 500m to 1000m. Updated HPA maxReplicas from 3 to 10 with a target CPU utilization of 70%. Applied via Kubernetes deployment patch and HPA configuration update. Added Prometheus alerts for container memory usage above 80% of limit and HPA at maxReplicas.
+
+**Post-Incident Issue:** https://github.com/example/bookshop-srv/issues/267
+**Remediation Workflow:** https://github.com/example/bookshop-srv/actions/runs/12345
+
+---
+
+## INC-2024-018 — 2024-04-01
+
+**Title:** bookshop-srv: HTTPS handshake failures — TLS certificate expired after cert-manager renewal failure
+**Severity:** P1 | **Service:** `bookshop-srv`
+**Category:** Infrastructure
+
+### Pattern
+`x509: certificate has expired or is not yet valid` combined with `tls: handshake failure` and spike in HTTPS connection errors
+
+### Root Cause
+The cert-manager ClusterIssuer HTTP-01 solver ingress route was misconfigured after an nginx ingress controller upgrade. Let's Encrypt ACME challenges returned 404, preventing certificate renewal. The certificate expired after 90 days without renewal. All HTTPS traffic to the ingress returned TLS handshake failures.
+
+### Resolution
+Fixed the cert-manager HTTP-01 solver ingress class annotation to match the upgraded nginx ingress controller. Manually triggered certificate renewal. Added a Prometheus alert for certificates expiring within 14 days (`certmanager_certificate_expiration_timestamp_seconds`). Added a second alert for consecutive ACME challenge failures.
+
+**Post-Incident Issue:** https://github.com/example/bookshop-srv/issues/283
+**Remediation Workflow:** https://github.com/example/bookshop-srv/actions/runs/12378
+
+---
+
 ## INC-2024-012 — 2024-03-08
 
 **Title:** bookshop-cap-srv: OData requests timeout after enabling unbounded `$expand` feature flag
