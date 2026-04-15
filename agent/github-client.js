@@ -109,6 +109,15 @@ export class GitHubClient {
   async createBranchWithFilesAndPR({ branchName, baseSHA, files, prTitle, prBody }) {
     const { defaultBranch } = await this.getDefaultBranchSHA();
 
+    // Delete branch if it already exists (stale from a previous run)
+    try {
+      await this.octokit.git.deleteRef({
+        owner: this.owner,
+        repo:  this.repo,
+        ref:   `heads/${branchName}`,
+      });
+    } catch { /* branch didn't exist — that's fine */ }
+
     // Create branch
     await this.octokit.git.createRef({
       owner: this.owner,
