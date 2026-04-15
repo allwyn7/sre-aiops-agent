@@ -17,12 +17,6 @@ public class Book {
     @Column(nullable = false)
     private BigDecimal price;
 
-    // ⚠️ INCIDENT SCENARIO: PR #52 removes this field but no Flyway migration drops the column.
-    // Hibernate still generates SELECT ... price_old ... causing PSQLException.
-    // To simulate the incident, delete this field and redeploy WITHOUT adding V2 migration.
-    @Column(name = "price_old")
-    private BigDecimal priceOld;
-
     @Column(nullable = false)
     private Integer stock;
 
@@ -39,9 +33,6 @@ public class Book {
 
     public BigDecimal getPrice()                { return price; }
     public void setPrice(BigDecimal price)      { this.price = price; }
-
-    public BigDecimal getPriceOld()             { return priceOld; }
-    public void setPriceOld(BigDecimal p)       { this.priceOld = p; }
 
     public Integer getStock()                   { return stock; }
     public void setStock(Integer stock)         { this.stock = stock; }
