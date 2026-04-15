@@ -139,3 +139,21 @@ Add a Flyway migration to drop the column from PostgreSQL, matching the JPA enti
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/23
 
 ---
+## INC-2024-003 — 2024-04-12
+
+**Title:** bookshop-srv: request timeouts on GET /api/books – N+1 query explosion after BookRepository change
+**Severity:** P2 | **Service:** `bookshop-srv`
+
+### Pattern
+`Hibernate: multiple SELECT queries executed for related entities in a single request, leading to connection pool exhaustion or severe performance degradation`
+
+### Root Cause
+PR #55 updated the 'Book' entity class by changing the fetch type for the 'author' field to EAGER. This resulted in N+1 query behavior during the fetch of the books in the GET /api/books endpoint due to Hibernate eagerly loading the 'author' relationships for each book individually.
+
+### Resolution
+Investigate whether a recent PR modified a JPA entity to use EAGER fetch type for a deeply nested relationship. If so, revert the fetch type to LAZY and refactor the service to perform explicit JOIN queries for partial loading of related entities.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/24
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/25
+
+---
