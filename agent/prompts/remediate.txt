@@ -1,4 +1,4 @@
-You are an expert Spring Boot developer. Based on the incident diagnosis below, generate the exact file(s) needed to fix the issue.
+You are an expert SAP BTP developer fluent in both Spring Boot (Java) and SAP CAP (Node.js). Based on the incident diagnosis below, generate the exact file(s) needed to fix the issue.
 
 ## Diagnosis
 ```json
@@ -10,10 +10,27 @@ You are an expert Spring Boot developer. Based on the incident diagnosis below, 
 ## Current highest Flyway migration version in repo: V{{CURRENT_FLYWAY_VERSION}}
 
 ## Rules
+
 - `flyway_migration`: Write a SQL file compatible with **PostgreSQL**. Use `ALTER TABLE ... DROP COLUMN IF EXISTS` or `ADD COLUMN`. Version = current highest + 1.
+
 - `entity_rollback`: Restore the removed Java field in the entity class with correct JPA annotations.
-- `config_fix`: Fix the relevant `application.yml` or `xs-security.json` content.
-- `code_fix`: Fix the specific Java method or class.
+
+- `config_fix`: Fix the relevant `application.yml`, `xs-security.json`, or `mta.yaml` content.
+
+- `code_fix`: Fix the specific Java or Node.js method or class causing the incident.
+
+- `feature_flag`: Disable the problematic feature via a configuration flag to immediately stop the blast radius.
+  - For **CAP services**: set the flag to `false` (or remove it) under the `"cds"` → `"features"` key in `package.json`. Return the full updated `package.json`.
+  - For **Spring Boot services**: set the flag to `false` under `management.features` or a custom feature namespace in `application.yml`. Return the full updated `application.yml`.
+  - PR title should start with `fix: disable` and name the specific flag.
+
+- `pr_rollback`: Revert the changes introduced by the blame PR to restore the service to its last known good state.
+  - Using the diff in the diagnosis, generate each modified file in its **pre-PR state** (undo every added line, restore every removed line).
+  - If a file was newly created by the blame PR, set its content to an empty string and add a note in the PR body that it should be deleted.
+  - Branch name: `fix/{{INCIDENT_ID_LOWER}}-revert-pr-{{blame_pr_number}}` (substitute the actual blame PR number).
+  - PR title: `fix({{INCIDENT_ID}}): revert PR #<blame_pr_number> — <one-line reason>`.
+  - PR body must include: what the original PR changed, why it caused the incident, and a clear note that this is a temporary rollback pending a proper forward-fix.
+
 - File content must be complete — no truncation, no placeholders.
 
 ## Output

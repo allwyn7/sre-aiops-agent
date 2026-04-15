@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,8 +7,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class LLMClient {
   constructor() {
-    this.client = new Anthropic();
-    this.model  = 'claude-opus-4-6';
+    // GitHub Models — authenticated with GITHUB_TOKEN, no separate API key needed
+    this.client = new OpenAI({
+      baseURL: 'https://models.inference.ai.azure.com',
+      apiKey:  process.env.GITHUB_TOKEN,
+    });
+    this.model = 'gpt-4o';
   }
 
   // Build a prompt from a template file, substituting {{PLACEHOLDERS}}
@@ -56,13 +60,26 @@ export class LLMClient {
       try {
         return await fn();
       } catch (err) {
-        const isRetryable = err.status === 429 || err.status === 500 || err.status === 529 || err.message?.includes('overloaded');
+        const isRetryable = err.status === 429 || err.status === 500 || err.status === 503 || err.message?.includes('overloaded');
         if (attempt === maxRetries || !isRetryable) throw err;
         const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
         console.log(`   LLM call failed (attempt ${attempt}/${maxRetries}): ${err.message}. Retrying in ${delay}ms...`);
         await new Promise(r => setTimeout(r, delay));
       }
     }
+  }
+
+  // Shared call helper — wraps GitHub Models chat completions
+  async _call(prompt, maxTokens) {
+    const response = await this._callWithRetry(() =>
+      this.client.chat.completions.create({
+        model:      this.model,
+        max_tokens: maxTokens,
+        messages:   [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+      })
+    );
+    return this._parseJSON(response.choices[0].message.content);
   }
 
   async diagnose({ alert, logs, recentPRs, blamePRNumber, blamePRTitle, blamePRDiff, pastIncidents }) {
@@ -80,15 +97,7 @@ export class LLMClient {
       PAST_INCIDENTS:   pastIncidents || '_No prior incidents recorded._',
     });
 
-    const message = await this._callWithRetry(() =>
-      this.client.messages.create({
-        model:      this.model,
-        max_tokens: 2048,
-        messages:   [{ role: 'user', content: prompt }],
-      })
-    );
-
-    return this._parseJSON(message.content[0].text);
+    return this._call(prompt, 2048);
   }
 
   async remediate({ diagnosisJson, remediationType, incidentId, currentFlywayVersion }) {
@@ -100,15 +109,7 @@ export class LLMClient {
       CURRENT_FLYWAY_VERSION:  currentFlywayVersion,
     });
 
-    const message = await this._callWithRetry(() =>
-      this.client.messages.create({
-        model:      this.model,
-        max_tokens: 4096,
-        messages:   [{ role: 'user', content: prompt }],
-      })
-    );
-
-    return this._parseJSON(message.content[0].text);
+    return this._call(prompt, 4096);
   }
 
   async generateSREArtifacts({ alert, logs, diagnosisJson, remediationJson }) {
@@ -119,15 +120,7 @@ export class LLMClient {
       REMEDIATION_JSON: JSON.stringify(remediationJson, null, 2),
     });
 
-    const message = await this._callWithRetry(() =>
-      this.client.messages.create({
-        model:      this.model,
-        max_tokens: 8192,
-        messages:   [{ role: 'user', content: prompt }],
-      })
-    );
-
-    return this._parseJSON(message.content[0].text);
+    return this._call(prompt, 8192);
   }
 
   async repair({ originalDiagnosis, originalFiles, ciLogs, currentFlywayVersion }) {
@@ -136,20 +129,12 @@ export class LLMClient {
       .join('\n\n');
 
     const prompt = this._renderTemplate('repair.txt', {
-      ORIGINAL_DIAGNOSIS:   JSON.stringify(originalDiagnosis, null, 2),
-      ORIGINAL_FILES:       filesFormatted,
-      CI_LOGS:              ciLogs,
-      CURRENT_FLYWAY_VERSION: currentFlywayVersion,
+      ORIGINAL_DIAGNOSIS:       JSON.stringify(originalDiagnosis, null, 2),
+      ORIGINAL_FILES:           filesFormatted,
+      CI_LOGS:                  ciLogs,
+      CURRENT_FLYWAY_VERSION:   currentFlywayVersion,
     });
 
-    const message = await this._callWithRetry(() =>
-      this.client.messages.create({
-        model:      this.model,
-        max_tokens: 4096,
-        messages:   [{ role: 'user', content: prompt }],
-      })
-    );
-
-    return this._parseJSON(message.content[0].text);
+    return this._call(prompt, 4096);
   }
 }

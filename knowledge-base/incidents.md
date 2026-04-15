@@ -62,3 +62,22 @@ Re-created the XSUAA service binding and restaged the application. Updated the d
 ---
 
 <!-- Agent appends entries below this line -->
+
+## INC-2024-012 — 2024-03-08
+
+**Title:** bookshop-cap-srv: OData requests timeout after enabling unbounded `$expand` feature flag
+**Severity:** P2 | **Service:** `bookshop-cap-srv`
+
+### Pattern
+`[cds] - Error: HANA connection queue depth exceeded` combined with `deep_reads enabled: expanding associations recursively`
+
+### Root Cause
+PR #58 set `"deep_reads": true` under `cds.features` in `package.json`. With no depth limit configured, the CDS OData handler recursively expanded all associations for every row in the result set — generating 300+ HANA queries per single OData request. The 30-connection HANA pool was exhausted within seconds under normal production load.
+
+### Resolution
+Set `"deep_reads": false` in `package.json` under `cds.features` to immediately restore service. A proper forward-fix can re-enable deep reads with explicit `$expand` depth limits and query complexity guards.
+
+**Post-Incident Issue:** https://github.tools.sap/I527229/sre-aiops-agent-hackathon/issues/12
+**Fix PR:** https://github.tools.sap/I527229/sre-aiops-agent-hackathon/pull/14
+
+---

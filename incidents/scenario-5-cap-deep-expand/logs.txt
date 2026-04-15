@@ -1,0 +1,56 @@
+2024-04-22T08:51:03.412Z | INFO  | [cds] - bookshop-cap-srv starting — @sap/cds 7.9.2, Node.js 20.11.1
+2024-04-22T08:51:04.089Z | INFO  | [cds] - loaded model from 4 file(s): srv/cat-service.cds, db/schema.cds, ...
+2024-04-22T08:51:04.203Z | INFO  | [cds] - connect to HANA Cloud via: { kind: 'hana', pool: { max: 30, min: 2, acquireTimeoutMillis: 10000 } }
+2024-04-22T08:51:04.891Z | INFO  | [cds] - serving CatalogService { at: '/odata/v4/CatalogService' }
+2024-04-22T08:51:04.892Z | INFO  | [cds] - feature flags loaded: { deep_reads: true, audit_log: false }
+2024-04-22T08:51:05.001Z | INFO  | [cds] - server listening on { url: 'http://localhost:8080' }
+
+2024-04-22T09:32:51.114Z | INFO  | [odata] - GET /odata/v4/CatalogService/Books?$expand=author,genre,reviews
+2024-04-22T09:32:51.203Z | DEBUG | [cds] - > SELECT Books { ID, title, descr, stock, price, author_ID, genre_ID } FROM Books — 1 query
+2024-04-22T09:32:51.440Z | DEBUG | [cds] - deep_reads enabled: expanding associations recursively for 87 Books rows
+2024-04-22T09:32:51.441Z | DEBUG | [cds] - > SELECT Authors { ID, name, dateOfBirth, nationality, author_ID } WHERE ID IN (...) — 87 queries
+2024-04-22T09:32:51.892Z | DEBUG | [cds] - > SELECT Genres { ID, name, parent_ID } WHERE ID IN (...) — 87 queries
+2024-04-22T09:32:52.204Z | DEBUG | [cds] - > SELECT Reviews { ID, rating, text, book_ID, reviewer_ID } WHERE book_ID IN (...) — 87 queries
+2024-04-22T09:32:52.441Z | DEBUG | [cds] - deep_reads: expanding Authors.nationality associations — 87 queries
+2024-04-22T09:32:52.881Z | DEBUG | [cds] - deep_reads: expanding Genres.parent recursively (depth 3) — 261 queries
+
+2024-04-22T09:33:01.334Z | ERROR | [cds] - HANA connection pool exhausted: all 30 connections active, 12 requests queued
+2024-04-22T09:33:01.335Z | ERROR | [cds] -   Pool: { total: 30, active: 30, idle: 0, waiting: 12 }
+2024-04-22T09:33:01.336Z | WARN  | [cds] - acquireTimeoutMillis (10000ms) exceeded for queued connection requests
+
+2024-04-22T09:33:11.892Z | ERROR | [odata] - GET /odata/v4/CatalogService/Books?$expand=author,genre,reviews → 503
+2024-04-22T09:33:11.893Z | ERROR | [cds] - Error: Connection acquire timeout of 10000ms exceeded
+    at Pool.acquire (/home/vcap/app/node_modules/hdb-pool/lib/Pool.js:142:15)
+    at async HanaService._query (/home/vcap/app/node_modules/@sap/cds/lib/db/hana/HanaService.js:89:22)
+    at async CatalogService.read (/home/vcap/app/node_modules/@sap/cds/lib/srv/crud/read.js:44:18)
+    at async ODataAdapter.dispatch (/home/vcap/app/node_modules/@sap/cds/lib/adapter/odata/ODataAdapter.js:211:7)
+
+2024-04-22T09:33:14.002Z | ERROR | [odata] - GET /odata/v4/CatalogService/Books → 503
+2024-04-22T09:33:14.003Z | ERROR | [cds] - Error: Connection acquire timeout of 10000ms exceeded
+    at Pool.acquire (/home/vcap/app/node_modules/hdb-pool/lib/Pool.js:142:15)
+    at async HanaService._query (/home/vcap/app/node_modules/@sap/cds/lib/db/hana/HanaService.js:89:22)
+
+2024-04-22T09:33:15.771Z | ERROR | [odata] - GET /odata/v4/CatalogService/Books(ID=4a7b3c12-...) → 503
+2024-04-22T09:33:15.772Z | ERROR | [cds] - Error: Connection acquire timeout of 10000ms exceeded
+    at Pool.acquire (/home/vcap/app/node_modules/hdb-pool/lib/Pool.js:142:15)
+
+2024-04-22T09:33:17.441Z | ERROR | [cds] - HANA pool queue depth reached 52 — incoming requests will immediately fail
+2024-04-22T09:33:17.442Z | ERROR | [cds] - heap used: 891 MB / 1024 MB (87%) — approaching limit
+
+2024-04-22T09:33:18.003Z | ERROR | [odata] - GET /odata/v4/CatalogService/Books?$expand=author,genre,reviews → 503
+2024-04-22T09:33:18.004Z | ERROR | [cds] - Error: HANA connection queue depth exceeded (max: 50)
+    at Pool.acquire (/home/vcap/app/node_modules/hdb-pool/lib/Pool.js:158:9)
+    at async HanaService._query (/home/vcap/app/node_modules/@sap/cds/lib/db/hana/HanaService.js:89:22)
+
+2024-04-22T09:33:28.115Z | ERROR | [odata] - GET /odata/v4/CatalogService/Books → 503
+2024-04-22T09:33:28.116Z | ERROR | [cds] - Error: HANA connection queue depth exceeded (max: 50)
+2024-04-22T09:33:28.117Z | WARN  | [cds] - 340 HANA queries issued for single OData request (deep_reads enabled, no depth limit configured)
+
+2024-04-22T09:34:01.209Z | ERROR | [odata] - GET /odata/v4/CatalogService/Books → 503
+2024-04-22T09:34:01.210Z | ERROR | [cds] - Error: HANA connection queue depth exceeded (max: 50)
+
+2024-04-22T09:34:11.334Z | ERROR | [odata] - GET /odata/v4/CatalogService/Books(ID=8f2a1c44-...) → 503
+2024-04-22T09:34:11.335Z | ERROR | [cds] - Error: HANA connection queue depth exceeded (max: 50)
+
+2024-04-22T09:34:17.002Z | WARN  | [cds] - BTP health check failing — liveness probe timeout after 30s
+2024-04-22T09:34:17.003Z | ERROR | [cds] - 47 requests failed in last 60s (error_rate: 34.7%)

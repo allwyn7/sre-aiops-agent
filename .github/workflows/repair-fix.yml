@@ -83,7 +83,6 @@ The auto-repaired fix also failed CI. This incident needs human intervention.
         if: steps.find-pr.outputs.should_repair == 'true'
         id: repair
         env:
-          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
           GITHUB_API_URL:     ${{ github.api_url }}
           GITHUB_REPO:        ${{ github.repository }}

@@ -12,6 +12,7 @@ on:
           - scenario-1-oom-cache
           - scenario-3-n-plus-one-timeout
           - scenario-4-xsuaa-auth
+          - scenario-5-cap-deep-expand
         default: scenario-2-500-schema-drift
       issue_number:
         description: 'GitHub Issue # to post diagnosis on (blank = create new)'
@@ -42,7 +43,6 @@ jobs:
       - name: Run AIOps Agent
         id: agent
         env:
-          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
           GITHUB_API_URL:       ${{ github.api_url }}
           GITHUB_REPO:          ${{ github.repository }}

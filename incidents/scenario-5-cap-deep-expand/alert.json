@@ -1,0 +1,43 @@
+{
+  "incident_id": "INC-2024-005",
+  "scenario": "scenario-5-cap-deep-expand",
+  "title": "bookshop-cap-srv: OData expand timeouts — HANA connection pool exhausted after deep-reads feature enabled",
+  "severity": "P2",
+  "service": "bookshop-cap-srv",
+  "environment": "production",
+  "timestamp": "2024-04-22T09:34:17Z",
+  "alert_source": "SAP BTP Application Logging",
+  "runtime": "nodejs20",
+  "framework": "SAP CAP (@sap/cds 7.x)",
+  "metrics": {
+    "http_5xx_rate_per_min": 47,
+    "http_5xx_baseline_per_min": 0.3,
+    "p99_response_time_ms": 28400,
+    "p99_baseline_ms": 320,
+    "db_query_count_per_request": 340,
+    "db_query_count_baseline": 3,
+    "hana_pool_active_connections": 30,
+    "hana_pool_max_connections": 30,
+    "hana_pool_queue_depth": 52,
+    "heap_used_mb": 891,
+    "heap_limit_mb": 1024,
+    "error_rate_percent": 34.7,
+    "affected_endpoints": [
+      "GET /odata/v4/CatalogService/Books?$expand=author,genre,reviews",
+      "GET /odata/v4/CatalogService/Books",
+      "GET /odata/v4/CatalogService/Books(ID=*)"
+    ]
+  },
+  "labels": {
+    "app": "bookshop-cap-srv",
+    "space": "prod",
+    "org": "sap-btp-demo-org",
+    "runtime": "nodejs20",
+    "cf_app_guid": "a3f82c11-7d44-4b9a-b821-cc2d8e5f1a09"
+  },
+  "blame_pr_number": 62,
+  "blame_pr_title": "feat: enable deep expand reads for nested OData associations",
+  "blame_pr_diff_summary": "Added `deep_reads: true` under `cds.features` in package.json to enable recursive association expansion in CDS OData handlers.",
+  "deployment_timestamp": "2024-04-22T08:51:03Z",
+  "deployment_by": "jan.mueller@sap-demo.com"
+}
