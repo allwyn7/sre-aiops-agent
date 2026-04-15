@@ -135,16 +135,19 @@ function extractToolResult(messages, toolName, field) {
   return null;
 }
 
-run().catch((err) => {
-  console.error('\nAgent failed:', err.message || err);
-  if (err.stack) console.error(err.stack);
+// Only invoke the CLI when this file is run directly (not imported as a module)
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  run().catch((err) => {
+    console.error('\nAgent failed:', err.message || err);
+    if (err.stack) console.error(err.stack);
 
-  const summaryFile = process.env.GITHUB_STEP_SUMMARY;
-  if (summaryFile) {
-    fs.appendFileSync(summaryFile,
-      `\n## Agent Failure\n\n**Error:** ${err.message}\n\n**Scenario:** ${INCIDENT_SCENARIO}\n`
-    );
-  }
+    const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+    if (summaryFile) {
+      fs.appendFileSync(summaryFile,
+        `\n## Agent Failure\n\n**Error:** ${err.message}\n\n**Scenario:** ${process.env.INCIDENT_SCENARIO}\n`
+      );
+    }
 
-  process.exit(1);
-});
+    process.exit(1);
+  });
+}
