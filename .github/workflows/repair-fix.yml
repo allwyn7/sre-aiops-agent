@@ -19,68 +19,60 @@ jobs:
     steps:
       - name: Find the failed PR
         id: find-pr
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // Get the PR associated with the failed workflow run
-            const run = context.payload.workflow_run;
-            const branch = run.head_branch;
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_HOST: ${{ github.server_url == 'https://github.com' && 'github.com' || 'github.tools.sap' }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          # Only handle agent fix branches
+          if [[ ! "$BRANCH" == fix/* ]]; then
+            echo "Branch '$BRANCH' is not an agent fix branch. Skipping."
+            echo "should_repair=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-            // Check if this is an agent-generated fix branch
-            if (!branch.startsWith('fix/')) {
-              core.info(`Branch "${branch}" is not an agent fix branch. Skipping.`);
-              core.setOutput('should_repair', 'false');
-              return;
-            }
+          # Find the open PR for this branch
+          PR_JSON=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number,labels --limit 1)
+          PR_NUMBER=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['number'] if d else '')" 2>/dev/null)
 
-            // Find the open PR for this branch
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-            });
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR found for branch '$BRANCH'. Skipping."
+            echo "should_repair=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-            if (prs.length === 0) {
-              core.info('No open PR found for this branch. Skipping.');
-              core.setOutput('should_repair', 'false');
-              return;
-            }
+          # Loop protection: don't repair a repair
+          HAS_REPAIR_LABEL=$(echo "$PR_JSON" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+labels = [l['name'] for l in d[0].get('labels', [])] if d else []
+print('true' if 'aiops-repair' in labels else 'false')
+")
 
-            const pr = prs[0];
-            const labels = pr.labels.map(l => l.name);
+          if [ "$HAS_REPAIR_LABEL" = "true" ]; then
+            echo "PR #$PR_NUMBER is already a repair attempt. Posting human-help comment."
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## ⚠️ Repair Also Failed
 
-            // Loop protection: don't repair a repair
-            if (labels.includes('aiops-repair')) {
-              core.info('PR is already a repair attempt. Posting human-help comment.');
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                body: '## ⚠️ Repair Also Failed\n\nThe auto-repaired fix also failed CI. This incident needs human intervention.\n\n> _SRE AIOps Agent — repair loop halted to prevent infinite retries._'
-              });
-              core.setOutput('should_repair', 'false');
-              return;
-            }
+The auto-repaired fix also failed CI. This incident needs human intervention.
 
-            core.info(`Found failed PR #${pr.number}: "${pr.title}"`);
-            core.setOutput('should_repair', 'true');
-            core.setOutput('pr_number', String(pr.number));
-            core.setOutput('run_id', String(run.id));
+> _SRE AIOps Agent — repair loop halted to prevent infinite retries._"
+            echo "should_repair=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found failed PR #$PR_NUMBER. Triggering repair."
+          echo "should_repair=true" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
       - name: Checkout repository
         if: steps.find-pr.outputs.should_repair == 'true'
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        if: steps.find-pr.outputs.should_repair == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: agent/package-lock.json
+        run: |
+          git clone "https://x-access-token:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git" .
+          git checkout "${GITHUB_SHA}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install agent dependencies
         if: steps.find-pr.outputs.should_repair == 'true'
