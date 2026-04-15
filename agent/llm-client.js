@@ -138,4 +138,86 @@ export class LLMClient {
 
     return this._call(prompt, 4096);
   }
+
+  // ── True agent methods (ReAct loop with tool calling) ────────────────────
+
+  // Call the LLM with an optional tools array. Does NOT set response_format —
+  // that flag is incompatible with the tools parameter in the OpenAI API.
+  async _callWithTools(messages, tools = null, maxTokens = 4096) {
+    const params = {
+      model:      this.model,
+      max_tokens: maxTokens,
+      messages,
+    };
+    if (tools && tools.length > 0) {
+      params.tools       = tools;
+      params.tool_choice = 'auto';
+    }
+    const response = await this._callWithRetry(() =>
+      this.client.chat.completions.create(params)
+    );
+    return response.choices[0].message;
+  }
+
+  // ReAct agent loop: the LLM drives its own execution by calling tools.
+  // Returns { finalMessage, messages } when the agent stops making tool calls.
+  async runAgent({ systemPrompt, userMessage, tools, toolExecutor, maxIterations = 25 }) {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: userMessage  },
+    ];
+
+    let finalMessage = null;
+
+    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+      console.log(`\n[Agent] Iteration ${iteration}/${maxIterations}`);
+
+      const message = await this._callWithTools(messages, tools, 4096);
+      messages.push(message);
+
+      // No tool calls → agent has decided it is done
+      if (!message.tool_calls || message.tool_calls.length === 0) {
+        console.log('[Agent] No more tool calls — agent completed.');
+        finalMessage = message.content;
+        break;
+      }
+
+      // Execute each tool call and feed results back into the message history
+      for (const toolCall of message.tool_calls) {
+        const name = toolCall.function.name;
+        let args;
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch (parseErr) {
+          console.warn(`[Agent] Failed to parse args for ${name}: ${parseErr.message}`);
+          args = {};
+        }
+
+        console.log(`[Agent] -> ${name}`);
+
+        let result;
+        try {
+          result = await toolExecutor.execute(name, args);
+          console.log(`[Agent] <- ${name} OK`);
+        } catch (execErr) {
+          console.warn(`[Agent] <- ${name} ERROR: ${execErr.message}`);
+          result = { error: execErr.message };
+        }
+
+        // Always push a tool result — skipping one breaks the OpenAI protocol
+        messages.push({
+          role:         'tool',
+          tool_call_id: toolCall.id,
+          content:      JSON.stringify(result, null, 2),
+        });
+      }
+    }
+
+    if (finalMessage === null) {
+      console.warn(`[Agent] Hit max iterations (${maxIterations}). Stopping.`);
+      finalMessage = `Agent reached max iterations (${maxIterations}) without completing.`;
+    }
+
+    return { finalMessage, messages };
+  }
 }
