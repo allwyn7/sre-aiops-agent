@@ -171,3 +171,21 @@ Rolled back PR #48 and removed the faulty cache. Service redeployed to restore s
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/11
 
 ---
+## INC-2024-002 — 2024-04-10
+
+**Title:** bookshop-srv: HTTP 500 spike – Hibernate SQLGrammarException on Books endpoint
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`SQLGrammarException: column \"price_old\" does not exist`
+
+### Root Cause
+The `price_old` column was removed from the `Books` table via PR #52, causing SQLGrammarException in parts of the code that still referenced this column.
+
+### Resolution
+A Flyway SQL migration (`V2`) was implemented to reintroduce the `price_old` column to resolve the mismatch.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/14
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/13
+
+---
