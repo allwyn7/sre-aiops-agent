@@ -175,3 +175,21 @@ When xsappname changes after a migration or service binding update, rebind the X
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/27
 
 ---
+## INC-2024-006 — 2024-04-25
+
+**Title:** bookshop-srv: Pods CrashLoopBackOff — OOMKilled after traffic spike
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`ERROR [kubelet] OOMKilled: container terminated (exit code 137) combined with HPA max reached and memory pressure on nodes.`
+
+### Root Cause
+The `bookshop-srv` pods were configured with a 512Mi memory limit and HPA maxReplicas set to 3. During a sudden traffic spike, pod memory usage exceeded the limit, causing the kernel cgroup to terminate containers repeatedly with OOMKilled (exit code 137). The HPA was unable to add more replicas because it was capped at 3, resulting in CrashLoopBackOff for all pods under continued load.
+
+### Resolution
+Increase container memory limits in deployment YAML. Increase HPA maxReplicas and optimize target CPU utilization. Add Prometheus alerts to detect memory usage nearing limits and prevent recurrence.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/28
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/29
+
+---
