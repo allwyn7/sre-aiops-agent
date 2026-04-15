@@ -3,14 +3,16 @@
 # Date: 2024-04-10
 
 groups:
-  - name: bookshop-srv HTTP Alerts
-    rules:
-      - alert: HighHTTP500Rate
-        expr: rate(http_requests_total{status=~"5..", app="bookshop", environment="production"}[5m]) > 5
-        for: 1m
-        labels:
-          severity: page
-          service: bookshop-srv
-        annotations:
-          summary: "Unusual rate of HTTP 500s in bookshop-srv production."
-          description: "HTTP 500 rate exceeded threshold in the production environment for bookshop-srv. Investigate schema and API errors."
+- name: bookshop-http-alerts
+  rules:
+  - alert: High5xxRate
+    expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (endpoint) > 20
+    for: 2m
+    labels:
+      severity: critical
+      service: bookshop-srv
+    annotations:
+      summary: "High rate of 5xx responses for Bookshop service endpoint {{ $labels.endpoint }}"
+      description: |
+        High HTTP 5xx error rate (> 20 per minute) detected on Bookshop service endpoint {{ $labels.endpoint }}.
+        Investigate logs for root cause (e.g., SQL exceptions, misconfigurations).
