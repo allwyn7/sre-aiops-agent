@@ -193,3 +193,21 @@ Increase container memory limits in deployment YAML. Increase HPA maxReplicas an
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/29
 
 ---
+## INC-2024-008 — 2024-05-01
+
+**Title:** bookshop-srv: Inter-service communication failure — DNS timeouts after cluster upgrade
+**Severity:** P2 | **Service:** `bookshop-srv`
+
+### Pattern
+`DNS resolution timeout, NXDOMAIN errors, blocked UDP:53 traffic for kube-dns`
+
+### Root Cause
+Kubernetes 1.29 introduced stricter namespaceSelector semantics in network policies. The `bookshop-egress-policy` no longer permits DNS queries to `kube-system` due to a missing explicit label match for the `kube-dns` namespace.
+
+### Resolution
+Update network policies to ensure DNS egress traffic (UDP:53) is permitted for the `kube-system` namespace. Explicit namespaceSelector label matches might be necessary after Kubernetes upgrades.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/30
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/31
+
+---
