@@ -44,6 +44,7 @@ jobs:
         id: agent
         env:
           GITHUB_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_MODELS_TOKEN:  ${{ secrets.GH_MODELS_TOKEN }}
           GITHUB_API_URL:       ${{ github.api_url }}
           GITHUB_REPO:          ${{ github.repository }}
           INCIDENT_SCENARIO:    ${{ inputs.scenario }}
