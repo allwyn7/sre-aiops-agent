@@ -135,3 +135,21 @@ Reintroduced the dropped `price_old` column using a Flyway SQL migration (`V2`).
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/7
 
 ---
+## INC-2024-005 — 2024-04-22
+
+**Title:** bookshop-cap-srv: OData expand timeouts  HANA connection pool exhausted
+**Severity:** P2 | **Service:** `bookshop-cap-srv`
+
+### Pattern
+`HANA connection pool exhausted: all 30 connections active, 12 requests queued`
+
+### Root Cause
+Enabling `deep_reads` in PR #62 caused recursive OData expand queries, leading to excessive HANA connection activity and exhaustion.
+
+### Resolution
+Rolled back PR #62 to disable the `deep_reads` feature, restoring the connection pool stability.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/10
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/9
+
+---
