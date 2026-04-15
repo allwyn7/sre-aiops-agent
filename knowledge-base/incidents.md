@@ -117,3 +117,21 @@ Added Flyway migration V2__drop_price_old_column.sql to remove the `price_old` c
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/5
 
 ---
+## INC-2024-002 — 2024-04-10
+
+**Title:** bookshop-srv: HTTP 500 spike – Hibernate SQLGrammarException on Books endpoint
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`SQLGrammarException: column \"price_old\" does not exist`
+
+### Root Cause
+The `price_old` column was removed from the `Book` entity in PR #52 without deploying a corresponding Flyway migration to synchronize the database schema.
+
+### Resolution
+Reintroduced the dropped `price_old` column using a Flyway SQL migration (`V2`). Updated alert rules, runbooks, and recommendations.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/8
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/7
+
+---
