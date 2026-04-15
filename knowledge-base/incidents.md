@@ -153,3 +153,21 @@ Rolled back PR #62 to disable the `deep_reads` feature, restoring the connection
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/9
 
 ---
+## INC-2024-001 — 2024-04-08
+
+**Title:** bookshop-srv: OutOfMemoryError – unbounded in-memory cache in BookService
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`java.lang.OutOfMemoryError: Java heap space`
+
+### Root Cause
+An unbounded in-memory cache introduced in PR #48 caused JVM heap exhaustion due to lack of size limits and eviction policies.
+
+### Resolution
+Rolled back PR #48 and removed the faulty cache. Service redeployed to restore stability.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/12
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/11
+
+---
