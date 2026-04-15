@@ -3,10 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GitHubClient } from './github-client.js';
 import { LLMClient } from './llm-client.js';
-import { createDiagnosisIssue } from './output/create-issue.js';
-import { createFixPR } from './output/create-pr.js';
-import { appendToKnowledgeBase } from './output/knowledge-base.js';
-import { commitSREArtifacts } from './output/commit-sre-artifacts.js';
+import { ToolExecutor } from './tool-executor.js';
+import { TOOLS } from './tools.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,141 +25,100 @@ const [owner, repo] = GITHUB_REPO.split('/');
 
 // ── Main agent loop ──────────────────────────────────────────────────────────
 async function run() {
-  console.log(`\n🚨 AIOps Agent starting — scenario: ${INCIDENT_SCENARIO}\n`);
+  console.log(`\nSRE AIOps Agent starting — scenario: ${INCIDENT_SCENARIO}\n`);
 
-  const github = new GitHubClient(owner, repo);
-  const llm    = new LLMClient();
-
-  // 1. Load incident payload ─────────────────────────────────────────────────
+  const github      = new GitHubClient(owner, repo);
+  const llm         = new LLMClient();
   const scenarioDir = path.join(__dirname, '..', 'incidents', INCIDENT_SCENARIO);
-  const alert = JSON.parse(
-    fs.readFileSync(path.join(scenarioDir, 'alert.json'), 'utf8')
+
+  const toolExecutor = new ToolExecutor(
+    github,
+    scenarioDir,
+    TARGET_ISSUE_NUMBER ? parseInt(TARGET_ISSUE_NUMBER) : null
   );
-  const logs = fs.readFileSync(path.join(scenarioDir, 'logs.txt'), 'utf8');
-  console.log(`📂 Loaded incident: ${alert.incident_id} — ${alert.title}`);
 
-  // 2. Fetch recent PRs, blame PR diff, and past incidents from knowledge base
-  console.log('🔍 Fetching recent PRs from GitHub...');
-  const recentPRs  = await github.getRecentPRs(10);
-  const blameDiff  = await github.getPRDiff(alert.blame_pr_number);
-  const currentFlywayVersion = await github.getHighestFlywayVersion();
-  console.log(`   ${recentPRs.length} PRs fetched. Blame PR: #${alert.blame_pr_number}`);
+  // Load system prompt
+  const systemPrompt = fs.readFileSync(
+    path.join(__dirname, 'prompts', 'system.txt'),
+    'utf8'
+  );
 
-  // 2b. Load past incidents from knowledge base for learning loop
-  console.log('📚 Loading past incidents from knowledge base...');
-  const kbData = await github.getFileContent('knowledge-base/incidents.md');
-  const pastIncidents = kbData?.content ?? '';
-  const pastIncidentCount = (pastIncidents.match(/^## INC-/gm) || []).length;
-  console.log(`   ${pastIncidentCount} past incident(s) loaded for context.`);
+  // Minimal user message — the agent calls tools to fetch all incident details
+  const userMessage = [
+    `New production incident to investigate and resolve.`,
+    ``,
+    `Scenario: ${INCIDENT_SCENARIO}`,
+    `Repository: ${GITHUB_REPO}`,
+    `Run ID: ${RUN_ID || 'local'}`,
+    `Target issue number for comment: ${TARGET_ISSUE_NUMBER || 'none — create a new issue'}`,
+    ``,
+    `Start by calling get_incident_alert and get_incident_logs.`,
+  ].join('\n');
 
-  // 3. Diagnose with LLM ─────────────────────────────────────────────────────
-  console.log('🤖 Calling LLM for diagnosis...');
-  const diagnosisRaw = await llm.diagnose({
-    alert,
-    logs,
-    recentPRs,
-    blamePRNumber: alert.blame_pr_number,
-    blamePRTitle:  alert.blame_pr_title,
-    blamePRDiff:   blameDiff,
-    pastIncidents,
+  // Run the agent — gpt-4o drives its own tool-calling loop
+  const { finalMessage, messages } = await llm.runAgent({
+    systemPrompt,
+    userMessage,
+    tools:         TOOLS,
+    toolExecutor,
+    maxIterations: 25,
   });
-  console.log(`   Confidence: ${diagnosisRaw.diagnosis.confidence}`);
-  console.log(`   Root cause: ${diagnosisRaw.diagnosis.summary}`);
 
-  // 4. Generate remediation with LLM ─────────────────────────────────────────
-  console.log('🔧 Calling LLM for remediation plan...');
-  const remediationRaw = await llm.remediate({
-    diagnosisJson:          diagnosisRaw,
-    remediationType:        diagnosisRaw.remediation_type,
-    incidentId:             alert.incident_id,
-    currentFlywayVersion,
-  });
-  console.log(`   Fix PR branch: ${remediationRaw.branch_name}`);
+  // Extract GitHub URLs from the tool result messages
+  const issueUrl = extractToolResult(messages, 'create_github_issue', 'issue_url');
+  const prUrl    = extractToolResult(messages, 'create_fix_pr',       'pr_url');
 
-  // 4b. Generate SRE artifacts with LLM ──────────────────────────────────────
-  let sreArtifacts = null;
-  try {
-    console.log('📋 Calling LLM for SRE artifacts (runbook, alerting rules, capacity planning, DR, performance tuning)...');
-    sreArtifacts = await llm.generateSREArtifacts({
-      alert,
-      logs,
-      diagnosisJson:    diagnosisRaw,
-      remediationJson:  remediationRaw,
-    });
-    console.log(`   Severity: ${sreArtifacts.incident_response_metadata?.severity_score}/10`);
-    console.log(`   MTTR estimate: ${sreArtifacts.incident_response_metadata?.mttr_estimate_minutes} min`);
-  } catch (err) {
-    console.warn(`   Warning: SRE artifact generation failed: ${err.message}. Continuing without artifacts.`);
-  }
-
-  // 5. Post diagnosis issue (enhanced with SRE metadata) ─────────────────────
-  const idLower = alert.incident_id.toLowerCase().replace(/_/g, '-');
-  const artifactPaths = {
-    runbookPath:          `knowledge-base/runbooks/${idLower}.md`,
-    alertingRulesPath:    `knowledge-base/alerting-rules/${idLower}.yml`,
-    recommendationsPath:  `knowledge-base/recommendations/${idLower}.md`,
-  };
-
-  console.log('📝 Creating post-incident GitHub Issue...');
-  const issueUrl = await createDiagnosisIssue(github, {
-    alert,
-    diagnosis:         diagnosisRaw,
-    remediation:       remediationRaw,
-    targetIssueNumber: TARGET_ISSUE_NUMBER ? parseInt(TARGET_ISSUE_NUMBER) : null,
-    sreArtifacts,
-    artifactPaths:     sreArtifacts ? artifactPaths : null,
-  });
-  console.log(`   Issue: ${issueUrl}`);
-
-  // 6. Create fix PR ─────────────────────────────────────────────────────────
-  console.log('🔀 Creating fix PR...');
-  const prUrl = await createFixPR(github, {
-    remediation: remediationRaw,
-    incidentId:  alert.incident_id,
-  });
-  console.log(`   PR: ${prUrl}`);
-
-  // 7. Append to knowledge base ──────────────────────────────────────────────
-  console.log('📚 Updating knowledge base...');
-  await appendToKnowledgeBase(github, { alert, diagnosis: diagnosisRaw, prUrl, issueUrl });
-
-  // 7b. Commit SRE artifacts to knowledge base ───────────────────────────────
-  if (sreArtifacts) {
-    console.log('📋 Committing SRE artifacts to knowledge base...');
-    const artifactResult = await commitSREArtifacts(github, {
-      alert,
-      sreArtifacts,
-      issueUrl,
-      prUrl,
-    });
-    console.log(`   Runbook: ${artifactResult.runbookPath}`);
-    console.log(`   Alerting rules: ${artifactResult.alertingRulesPath}`);
-    console.log(`   Recommendations: ${artifactResult.recommendationsPath}`);
-  }
-
-  // 8. Emit GitHub Actions outputs ───────────────────────────────────────────
+  // Emit GitHub Actions outputs
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
-    fs.appendFileSync(outputFile, `diagnosis_issue_url=${issueUrl}\n`);
-    fs.appendFileSync(outputFile, `fix_pr_url=${prUrl}\n`);
-    if (sreArtifacts) {
-      fs.appendFileSync(outputFile, `runbook_path=${artifactPaths.runbookPath}\n`);
-      fs.appendFileSync(outputFile, `alerting_rules_path=${artifactPaths.alertingRulesPath}\n`);
-      fs.appendFileSync(outputFile, `recommendations_path=${artifactPaths.recommendationsPath}\n`);
-    }
+    if (issueUrl) fs.appendFileSync(outputFile, `diagnosis_issue_url=${issueUrl}\n`);
+    if (prUrl)    fs.appendFileSync(outputFile, `fix_pr_url=${prUrl}\n`);
+
+    // Artifact paths from commit_sre_artifact tool results
+    const runbookPath       = extractToolResult(messages, 'commit_sre_artifact', 'runbook_path');
+    const alertingRulesPath = extractToolResult(messages, 'commit_sre_artifact', 'alerting_rules_path');
+    const recommendationsPath = extractToolResult(messages, 'commit_sre_artifact', 'recommendations_path');
+    if (runbookPath)         fs.appendFileSync(outputFile, `runbook_path=${runbookPath}\n`);
+    if (alertingRulesPath)   fs.appendFileSync(outputFile, `alerting_rules_path=${alertingRulesPath}\n`);
+    if (recommendationsPath) fs.appendFileSync(outputFile, `recommendations_path=${recommendationsPath}\n`);
   }
 
-  console.log('\n✅ Agent completed successfully.\n');
+  console.log('\nAgent completed.\n');
+  if (finalMessage) console.log(finalMessage);
+}
+
+// Scan message history for a tool result produced by a specific tool call.
+// Finds the assistant message with a matching tool_call function name, then
+// locates the tool role message with the same tool_call_id.
+function extractToolResult(messages, toolName, field) {
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role !== 'assistant' || !msg.tool_calls) continue;
+    for (const tc of msg.tool_calls) {
+      if (tc.function.name !== toolName) continue;
+      const resultMsg = messages.find(
+        m => m.role === 'tool' && m.tool_call_id === tc.id
+      );
+      if (resultMsg) {
+        try {
+          const parsed = JSON.parse(resultMsg.content);
+          if (parsed[field] !== undefined) return parsed[field];
+        } catch { /* skip unparseable results */ }
+      }
+    }
+  }
+  return null;
 }
 
 run().catch((err) => {
-  console.error('\n❌ Agent failed:', err.message || err);
+  console.error('\nAgent failed:', err.message || err);
   if (err.stack) console.error(err.stack);
 
-  // Write failure summary to GitHub Actions
   const summaryFile = process.env.GITHUB_STEP_SUMMARY;
   if (summaryFile) {
-    fs.appendFileSync(summaryFile, `\n## Agent Failure\n\n**Error:** ${err.message}\n\n**Scenario:** ${process.env.INCIDENT_SCENARIO}\n`);
+    fs.appendFileSync(summaryFile,
+      `\n## Agent Failure\n\n**Error:** ${err.message}\n\n**Scenario:** ${INCIDENT_SCENARIO}\n`
+    );
   }
 
   process.exit(1);
