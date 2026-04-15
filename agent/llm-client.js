@@ -7,10 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class LLMClient {
   constructor() {
-    // GitHub Models — authenticated with GITHUB_TOKEN, no separate API key needed
+    // GitHub Models — uses GITHUB_MODELS_TOKEN if set (github.com PAT),
+    // otherwise falls back to GITHUB_TOKEN
     this.client = new OpenAI({
       baseURL: 'https://models.inference.ai.azure.com',
-      apiKey:  process.env.GITHUB_TOKEN,
+      apiKey:  process.env.GITHUB_MODELS_TOKEN || process.env.GITHUB_TOKEN,
     });
     this.model = 'gpt-4o';
   }
