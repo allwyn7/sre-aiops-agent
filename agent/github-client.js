@@ -1,11 +1,11 @@
 import { Octokit } from '@octokit/rest';
 
 export class GitHubClient {
-  constructor(owner, repo) {
+  constructor(owner, repo, token) {
     this.owner = owner;
     this.repo  = repo;
     const baseUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
-    this.octokit = new Octokit({ auth: process.env.GITHUB_TOKEN, baseUrl });
+    this.octokit = new Octokit({ auth: token || process.env.GITHUB_TOKEN, baseUrl });
   }
 
   // Fetch the N most recently merged PRs with their metadata

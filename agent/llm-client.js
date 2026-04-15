@@ -6,12 +6,11 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class LLMClient {
-  constructor() {
-    // GitHub Models — uses GITHUB_MODELS_TOKEN if set (github.com PAT),
-    // otherwise falls back to GITHUB_TOKEN
+  constructor(token) {
+    // GitHub Models — uses provided token, GITHUB_MODELS_TOKEN, or GITHUB_TOKEN
     this.client = new OpenAI({
       baseURL: 'https://models.inference.ai.azure.com',
-      apiKey:  process.env.GITHUB_MODELS_TOKEN || process.env.GITHUB_TOKEN,
+      apiKey:  token || process.env.GITHUB_MODELS_TOKEN || process.env.GITHUB_TOKEN,
     });
     this.model = 'gpt-4o';
   }
@@ -159,9 +158,7 @@ export class LLMClient {
     return response.choices[0].message;
   }
 
-  // ReAct agent loop: the LLM drives its own execution by calling tools.
-  // Returns { finalMessage, messages } when the agent stops making tool calls.
-  async runAgent({ systemPrompt, userMessage, tools, toolExecutor, maxIterations = 25 }) {
+  async runAgent({ systemPrompt, userMessage, tools, toolExecutor, maxIterations = 25, onProgress = () => {} }) {
     const messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user',   content: userMessage  },
@@ -170,14 +167,18 @@ export class LLMClient {
     let finalMessage = null;
 
     for (let iteration = 1; iteration <= maxIterations; iteration++) {
-      console.log(`\n[Agent] Iteration ${iteration}/${maxIterations}`);
+      const iterMsg = `\n[Agent] Iteration ${iteration}/${maxIterations}`;
+      console.log(iterMsg);
+      onProgress(iterMsg);
 
       const message = await this._callWithTools(messages, tools, 4096);
       messages.push(message);
 
       // No tool calls → agent has decided it is done
       if (!message.tool_calls || message.tool_calls.length === 0) {
-        console.log('[Agent] No more tool calls — agent completed.');
+        const doneMsg = '[Agent] No more tool calls — agent completed.';
+        console.log(doneMsg);
+        onProgress(doneMsg);
         finalMessage = message.content;
         break;
       }
@@ -193,14 +194,19 @@ export class LLMClient {
           args = {};
         }
 
-        console.log(`[Agent] -> ${name}`);
+        const callMsg = `[Agent] -> ${name}`;
+        console.log(callMsg);
+        onProgress(callMsg);
 
         let result;
         try {
           result = await toolExecutor.execute(name, args);
-          console.log(`[Agent] <- ${name} OK`);
+          const okMsg = `[Agent] <- ${name} OK`;
+          console.log(okMsg);
+          onProgress(okMsg);
         } catch (execErr) {
           console.warn(`[Agent] <- ${name} ERROR: ${execErr.message}`);
+          onProgress(`[Agent] <- ${name} ERROR: ${execErr.message}`);
           result = { error: execErr.message };
         }
 
