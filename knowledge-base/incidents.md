@@ -301,3 +301,21 @@ Add a Flyway migration to drop the column from the PostgreSQL schema, ensuring i
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/41
 
 ---
+## INC-2024-006 — 2024-04-25
+
+**Title:** bookshop-srv: Pods CrashLoopBackOff — OOMKilled after traffic spike
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`OOMKilled events (exit code 137) combined with HPA maxed out and node memory pressure.`
+
+### Root Cause
+The containers had a memory limit of 512Mi, which was exceeded during a traffic spike. The Horizontal Pod Autoscaler (HPA) maxReplicas was set to 3, preventing additional scaling to handle the load. Node memory pressure further exacerbated the situation, leading to repeated pod crashes (exit code 137).
+
+### Resolution
+1. Increase container memory and/or CPU limits in the deployment YAML. 2. Update HPA configuration for higher maxReplicas and appropriate target utilization. 3. Scale up underlying infrastructure if necessary to handle higher resource requirements.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/42
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/43
+
+---
