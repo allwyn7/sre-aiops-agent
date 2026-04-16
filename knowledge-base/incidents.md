@@ -229,3 +229,21 @@ Correct the ingress configuration for the HTTP-01 solver route. Ensure the ingre
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/33
 
 ---
+## INC-2024-001 — 2024-04-08
+
+**Title:** bookshop-srv: OutOfMemoryError – unbounded in-memory cache in BookService
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`java.lang.OutOfMemoryError: Java heap space triggered by unbounded in-memory structure`
+
+### Root Cause
+PR #48 introduced an unbounded static HashMap cache in the BookService class without any eviction policy. As more books and search queries were cached, the HashMap grew uncontrollably, consuming almost the entire JVM heap. Eventually, the heap was exhausted, resulting in a java.lang.OutOfMemoryError, pod crashes, and restart loops. Logs indicate that the issue arose from the resize operation during the put() method in HashMap on line 35 of BookService.
+
+### Resolution
+Revert the PR causing unbounded caching to restore stability immediately. Then implement proper cache size limits or strategies (e.g., LRU, time-based expiration). Monitor JVM metrics for heap usage and garbage collection to ensure the issue does not recur.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/34
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/35
+
+---
