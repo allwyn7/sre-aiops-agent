@@ -247,3 +247,21 @@ Revert the PR causing unbounded caching to restore stability immediately. Then i
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/35
 
 ---
+## INC-2024-006 — 2024-04-25
+
+**Title:** bookshop-srv: Pods CrashLoopBackOff — OOMKilled after traffic spike
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`OOMKilled events (exit code 137) combined with HPA maxed out and memory pressure on nodes`
+
+### Root Cause
+The 'bookshop-srv' pods in the production environment were configured with a memory limit of 512Mi. A traffic spike caused memory usage to exceed this limit, leading to OOMKilled (exit code 137) events. The Horizontal Pod Autoscaler (HPA) was configured with a maximum of 3 replicas, which was insufficient to handle the increased workload. Node memory pressure further exacerbated the issue, leaving no available memory for pod recovery.
+
+### Resolution
+Adjust container memory and CPU limits in the deployment spec based on recent peak usage. Increase the HPA's maxReplicas setting and ensure it aligns with the expected traffic. Scale infrastructure resources if necessary and add Prometheus alerts for early detection of memory thresholds.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/36
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/37
+
+---
