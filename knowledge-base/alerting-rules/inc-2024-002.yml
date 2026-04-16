@@ -3,32 +3,36 @@
 # Date: 2024-04-10
 
 groups:
-  - name: bookshop_alerts
+  - name: BookshopAlerts
     rules:
-      - alert: HighHTTP500RateOnBooksAPI
-        expr: rate(http_server_requests_seconds_count{status=~"5..",app="bookshop"}[1m]) > 1
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Critical: High HTTP 500 rate on Books API"
-          description: "HTTP 500 errors on /api/books endpoints exceeded 1 req/s (threshold: 0.6 req/s). Investigate for possible issues in Book JPA entity or database schema. [Runbook Link](http://your-runbook-url)."
-      - alert: ElevatedHTTP500RateOnBooksAPI
-        expr: rate(http_server_requests_seconds_count{status=~"5..",app="bookshop"}[1m]) > 0.6
+      - alert: HighHTTP500Rate
+        expr: rate(http_server_requests_error_total{app="bookshop"}[1m]) > 1
         for: 3m
         labels:
-          severity: warning
-        annotations:
-          summary: "Warning: Elevated HTTP 500 rate on Books API"
-          description: "HTTP 500 errors are approaching the critical threshold on /api/books endpoints. Review application health for potential issues."
-  - name: health_check_alerts
-    rules:
-      - alert: BookshopServiceDown
-        expr: probe_success{job="kubernetes",app="bookshop"} == 0
-        for: 30s
-        labels:
           severity: critical
+          app: bookshop
+          environment: production
         annotations:
-          summary: "Critical: Bookshop service is DOWN"
-          description: "Bookshop service /actuator/health is reporting status DOWN. Investigate database connectivity or service readiness issues."
-
+          summary: High HTTP 500 error rate detected for Bookshop service
+          description: The HTTP 500 error rate for endpoints /api/books exceeded the baseline and the accepted threshold (1 error/minute).
+          runbook_url: https://runbooks.example.com/JPA_Entity_Schema_Drift_Recovery
+      - alert: WarningHTTP500Rate
+        expr: rate(http_server_requests_error_total{app="bookshop"}[1m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          app: bookshop
+          environment: production
+        annotations:
+          summary: Elevated HTTP 500 error rate detected for Bookshop service
+          description: The HTTP 500 error rate for endpoints /api/books is elevated and nearing the critical threshold.
+          runbook_url: https://runbooks.example.com/JPA_Entity_Schema_Drift_Recovery
+routes:
+  - match:
+      severity: critical
+    continue: false
+    receiver: ops-team
+  - match:
+      severity: warning
+    continue: true
+    receiver: dev-team
