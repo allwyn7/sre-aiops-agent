@@ -3,23 +3,32 @@
 # Date: 2024-04-10
 
 groups:
-  - name: bookshop
+  - name: bookshop_alerts
     rules:
-      - alert: HighHttp5xxRate
-        expr: increase(http_5xx_rate_per_min[1m]) > 1.0
+      - alert: HighHTTP500RateOnBooksAPI
+        expr: rate(http_server_requests_seconds_count{status=~"5..",app="bookshop"}[1m]) > 1
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "HTTP 500 rate exceeds threshold"
-          description: "HTTP 500 errors exceed threshold of 1 request per minute. Investigate logs and affected endpoints."
-          runbook_url: "https://example.com/runbook-http-500"
-      - alert: WarningHttp5xxRate
-        expr: increase(http_5xx_rate_per_min[1m]) > 0.6
-        for: 2m
+          summary: "Critical: High HTTP 500 rate on Books API"
+          description: "HTTP 500 errors on /api/books endpoints exceeded 1 req/s (threshold: 0.6 req/s). Investigate for possible issues in Book JPA entity or database schema. [Runbook Link](http://your-runbook-url)."
+      - alert: ElevatedHTTP500RateOnBooksAPI
+        expr: rate(http_server_requests_seconds_count{status=~"5..",app="bookshop"}[1m]) > 0.6
+        for: 3m
         labels:
           severity: warning
         annotations:
-          summary: "Potential increase in HTTP 500 errors"
-          description: "HTTP 500 errors exceed warning threshold. Investigate if rate persists or increases."
-          runbook_url: "https://example.com/runbook-http-500"
+          summary: "Warning: Elevated HTTP 500 rate on Books API"
+          description: "HTTP 500 errors are approaching the critical threshold on /api/books endpoints. Review application health for potential issues."
+  - name: health_check_alerts
+    rules:
+      - alert: BookshopServiceDown
+        expr: probe_success{job="kubernetes",app="bookshop"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical: Bookshop service is DOWN"
+          description: "Bookshop service /actuator/health is reporting status DOWN. Investigate database connectivity or service readiness issues."
+
