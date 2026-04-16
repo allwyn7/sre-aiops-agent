@@ -3,39 +3,43 @@
 # Date: 2024-04-25
 
 groups:
-  - name: infrastructure-alerts
+  - name: bookshop-srv-alerts
     rules:
-      - alert: HighMemoryUsage
-        expr: container_memory_working_set_bytes / container_memory_limit_bytes > 0.8
-        for: 3m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High memory usage, threshold exceeded ({{ $value }})"
-          description: "A container's memory usage exceeds 80% of its limit. Investigate scaling and memory usage."
-          runbook_url: "https://example.com/runbook/oomkilled"
-      - alert: CriticalMemoryUsage
-        expr: container_memory_working_set_bytes / container_memory_limit_bytes > 0.95
+      - alert: PodMemoryUsageCritical
+        expr: container_memory_working_set_bytes{namespace="bookshop-prod", pod=~"bookshop-srv.*"} > 480Mi
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Memory usage critically high, nearing limit ({{ $value }})"
-          description: "A container's memory usage exceeds 95% of its limit. Immediate intervention required."
-          runbook_url: "https://example.com/runbook/oomkilled"
-      - alert: HPAMaxedOut
-        expr: kube_horizontalpodautoscaler_status_current_replicas >= kube_horizontalpodautoscaler_spec_max_replicas
+          summary: "Pod memory usage critical for bookshop-srv"
+          description: "Pod {{ $labels.pod }} is using >480Mi memory, close to the limit of 512Mi, in namespace {{ $labels.namespace }}. Consider increasing memory limits."
+          runbook_url: "https://runbooks.example.com/POD_MEMORY_CRASH"
+
+      - alert: PodCrashLooping
+        expr: changes(kube_pod_container_status_restarts_total{namespace="bookshop-prod", pod=~"bookshop-srv.*", container="bookshop-srv"}[5m]) > 3
         for: 5m
         labels:
-          severity: critical
+          severity: warning
         annotations:
-          summary: "HPA maxed out for {{ $labels.namespace }}/{{ $labels.deployment }}."
-          description: "The Horizontal Pod Autoscaler can't scale further due to max replica limit."
-          runbook_url: "https://example.com/runbook/hpa-maxed-out"
-  - route:
-      receiver: critical-alerts
-      group_by: ['alertname']
-      matchers:
-        - severity=~"warning|critical"
-      continue: true
+          summary: "Pod in CrashLoopBackOff ({{ $labels.pod }})"
+          description: "Pod {{ $labels.pod }} has restarted multiple times within a short period. Investigate possible resource exhaustion or configuration issues."
+          runbook_url: "https://runbooks.example.com/POD_CRASHLOOPING"
 
+      - alert: NodeMemoryPressure
+        expr: kube_node_status_condition{condition="MemoryPressure", status="true"} > 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node memory pressure warning"
+          description: "Node {{ $labels.node }} is experiencing memory pressure. Consider scaling the node pool or adjusting resource configurations."
+          runbook_url: "https://runbooks.example.com/NODE_MEMORY_PRESSURE"
+
+  - name: alertmanager-routing
+    routes:
+    - match:
+        severity: critical
+      receiver: critical-notifications
+    - match:
+        severity: warning
+      receiver: warning-notifications
