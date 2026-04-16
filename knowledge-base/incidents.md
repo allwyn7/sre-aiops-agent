@@ -283,3 +283,21 @@ When a field is removed from a JPA entity, concurrently add a Flyway migration t
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/39
 
 ---
+## INC-2024-002 — 2024-04-10
+
+**Title:** bookshop-srv: HTTP 500 spike – Hibernate SQLGrammarException on Books endpoint
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`org.postgresql.util.PSQLException: ERROR: column does not exist`
+
+### Root Cause
+The Book.java JPA entity was modified in PR #52 to remove the 'priceOld' field, but no matching Flyway migration was added to drop the 'price_old' column from the PostgreSQL database schema. This results in Hibernate attempting to query a column that does not exist, causing org.postgresql.util.PSQLException: ERROR: column "price_old" does not exist.
+
+### Resolution
+Add a Flyway migration to drop the column from the PostgreSQL schema, ensuring it matches the current state of the JPA entity. Apply migrations before deploying changes affecting database schema.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/40
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/41
+
+---
