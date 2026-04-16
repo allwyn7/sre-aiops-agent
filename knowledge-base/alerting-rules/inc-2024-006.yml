@@ -3,35 +3,39 @@
 # Date: 2024-04-25
 
 groups:
-  - name: "bookshop-srv-alerts"
+  - name: infrastructure-alerts
     rules:
-      - alert: "PodMemoryUsageHigh"
-        expr: sum(container_memory_usage_bytes{namespace="bookshop-prod", pod=~"bookshop-srv.*"}) / sum(kube_pod_container_resource_limits_memory_bytes{namespace="bookshop-prod", container="bookshop-srv"}) > 0.9
-        for: 2m
-        labels:
-          severity: "warning"
-        annotations:
-          summary: "High memory usage on bookshop-srv pods"
-          description: "Memory usage exceeds 90% of container limits. Investigate for memory leaks or increase memory limits."
-          runbook_url: "https://runbook-link"
-
-      - alert: "HPANearMax"
-        expr: kube_hpa_status_desired_replicas{namespace="bookshop-prod", hpa="bookshop-srv"} >= (0.8 * kube_hpa_spec_max_replicas{namespace="bookshop-prod", hpa="bookshop-srv"})
+      - alert: HighMemoryUsage
+        expr: container_memory_working_set_bytes / container_memory_limit_bytes > 0.8
         for: 3m
         labels:
-          severity: "critical"
+          severity: warning
         annotations:
-          summary: "HPA scaling near maximum capacity"
-          description: "HPA for bookshop-srv is nearing its maxReplicas limit."
-          runbook_url: "https://runbook-link"
-
-      - alert: "HighErrorRate"
-        expr: rate(http_requests_total{service="bookshop-srv", status=~"5.."}[2m]) / rate(http_requests_total{service="bookshop-srv"}[2m]) > 0.05
+          summary: "High memory usage, threshold exceeded ({{ $value }})"
+          description: "A container's memory usage exceeds 80% of its limit. Investigate scaling and memory usage."
+          runbook_url: "https://example.com/runbook/oomkilled"
+      - alert: CriticalMemoryUsage
+        expr: container_memory_working_set_bytes / container_memory_limit_bytes > 0.95
         for: 2m
         labels:
-          severity: "critical"
+          severity: critical
         annotations:
-          summary: "High error rate on critical endpoints"
-          description: "HTTP 5xx rate exceeds 5% of all requests for bookshop-srv. Investigate service health."
-          runbook_url: "https://runbook-link"
+          summary: "Memory usage critically high, nearing limit ({{ $value }})"
+          description: "A container's memory usage exceeds 95% of its limit. Immediate intervention required."
+          runbook_url: "https://example.com/runbook/oomkilled"
+      - alert: HPAMaxedOut
+        expr: kube_horizontalpodautoscaler_status_current_replicas >= kube_horizontalpodautoscaler_spec_max_replicas
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HPA maxed out for {{ $labels.namespace }}/{{ $labels.deployment }}."
+          description: "The Horizontal Pod Autoscaler can't scale further due to max replica limit."
+          runbook_url: "https://example.com/runbook/hpa-maxed-out"
+  - route:
+      receiver: critical-alerts
+      group_by: ['alertname']
+      matchers:
+        - severity=~"warning|critical"
+      continue: true
 
