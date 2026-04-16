@@ -319,3 +319,21 @@ The containers had a memory limit of 512Mi, which was exceeded during a traffic 
 **Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/43
 
 ---
+## INC-2024-002 — 2024-04-10
+
+**Title:** bookshop-srv: HTTP 500 spike – Hibernate SQLGrammarException on Books endpoint
+**Severity:** P1 | **Service:** `bookshop-srv`
+
+### Pattern
+`org.postgresql.util.PSQLException: ERROR: column does not exist`
+
+### Root Cause
+PR #52 removed 'priceOld' from the Book.java JPA entity without adding a corresponding Flyway migration to drop the 'price_old' column from PostgreSQL. Hibernate attempted to query the non-existent column, causing org.postgresql.util.PSQLException: ERROR: column "price_old" does not exist.
+
+### Resolution
+Add a Flyway migration to drop the column from PostgreSQL, matching the JPA entity state.
+
+**Post-Incident Issue:** https://github.com/allwyn7/sre-aiops-agent/issues/44
+**Fix PR:** https://github.com/allwyn7/sre-aiops-agent/pull/45
+
+---
