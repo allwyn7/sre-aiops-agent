@@ -1,0 +1,7 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://<your-btp-subdomain>.authentication.eu20.hana.ondemand.com/oauth/token
+          audience: bookshop-prod-eu20-v2

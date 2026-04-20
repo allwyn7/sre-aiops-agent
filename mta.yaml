@@ -1,0 +1,25 @@
+ID: bookshop-cap
+_schema-version: '3.1'
+version: 1.0.0
+modules:
+  - name: srv
+    type: nodejs
+    path: gen/srv
+    requires:
+      - name: xsuaa
+        properties:
+          xsappname: bookshop-prod-eu20-v2
+resources:
+  - name: xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      config:
+        xsappname: bookshop-prod-eu20-v2
+        tenant-mode: dedicated
+        role-collections:
+          - name: Bookshop_Admin
+            description: "Role collection for administrators"
+            roles:
+              - name: Admin
