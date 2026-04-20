@@ -1,0 +1,6 @@
+apiVersion: resize.nodepool.kubernetes.io/v1
+kind: NodePool
+metadata:
+  name: worker-pool
+spec:
+  newSize: 5
