@@ -1,0 +1,35 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bookshop-cert-manager-ingress
+  namespace: bookshop-prod
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  rules:
+  - host: bookshop.example.com
+    http:
+      paths:
+      - path: /.well-known/acme-challenge/*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: cert-manager-webhook
+            port:
+              number: 80
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bookshop-tls
+  namespace: bookshop-prod
+spec:
+  secretName: bookshop-tls
+  commonName: bookshop.example.com
+  dnsNames:
+  - bookshop.example.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
